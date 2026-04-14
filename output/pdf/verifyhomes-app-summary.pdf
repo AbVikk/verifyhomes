@@ -1,0 +1,197 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 1 /Kids [3 0 R] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+6 0 obj
+<< /Length 8707 >>
+stream
+0.98 0.99 1 rg
+0.00 0.00 612.00 792.00 re f
+0.87 0.94 0.91 rg
+42.00 682.00 528.00 62.00 re f
+0.07 0.47 0.33 rg
+BT /F2 22 Tf 1 0 0 1 60.00 714.00 Tm (VerifyHomes) Tj ET
+0.13 0.16 0.19 rg
+BT /F1 18 Tf 1 0 0 1 187.00 714.00 Tm (App Summary) Tj ET
+0.35 0.40 0.45 rg
+BT /F1 9 Tf 1 0 0 1 60.00 694.00 Tm (One-page repo-backed overview generated from Laravel routes, models, migrations, views, and config.) Tj ET
+1 1 1 rg
+0.86 0.89 0.92 RG
+1 w
+42.00 572.00 255.00 88.00 re f
+42.00 572.00 255.00 88.00 re S
+0.87 0.94 0.91 rg
+42.00 634.00 255.00 26.00 re f
+0.07 0.47 0.33 rg
+BT /F2 10 Tf 1 0 0 1 54.00 643.00 Tm (What It Is) Tj ET
+0.13 0.16 0.19 rg
+BT /F1 9 Tf 1 0 0 1 54.00 618.00 Tm (VerifyHomes is a Laravel web app for safer) Tj ET
+BT /F1 9 Tf 1 0 0 1 54.00 606.00 Tm (landlord-to-tenant rentals, starting with Akure,) Tj ET
+BT /F1 9 Tf 1 0 0 1 54.00 594.00 Tm (Ondo State. The repo shows role-based experiences) Tj ET
+BT /F1 9 Tf 1 0 0 1 54.00 582.00 Tm (for tenants, landlords, and admin/staff around) Tj ET
+BT /F1 9 Tf 1 0 0 1 54.00 570.00 Tm (verified listings and inspection-first rental) Tj ET
+BT /F1 9 Tf 1 0 0 1 54.00 558.00 Tm (workflows.) Tj ET
+1 1 1 rg
+0.86 0.89 0.92 RG
+1 w
+42.00 456.00 255.00 78.00 re f
+42.00 456.00 255.00 78.00 re S
+0.87 0.94 0.91 rg
+42.00 508.00 255.00 26.00 re f
+0.07 0.47 0.33 rg
+BT /F2 10 Tf 1 0 0 1 54.00 517.00 Tm (Who It Is For) Tj ET
+0.13 0.16 0.19 rg
+BT /F1 9 Tf 1 0 0 1 54.00 492.00 Tm (Primary persona: tenants/renters looking for) Tj ET
+BT /F1 9 Tf 1 0 0 1 54.00 480.00 Tm (safer rentals in Akure. Secondary in-repo users:) Tj ET
+BT /F1 9 Tf 1 0 0 1 54.00 468.00 Tm (landlords listing properties and admin/staff) Tj ET
+BT /F1 9 Tf 1 0 0 1 54.00 456.00 Tm (users handling verification and operations.) Tj ET
+1 1 1 rg
+0.86 0.89 0.92 RG
+1 w
+42.00 196.00 255.00 236.00 re f
+42.00 196.00 255.00 236.00 re S
+0.87 0.94 0.91 rg
+42.00 406.00 255.00 26.00 re f
+0.07 0.47 0.33 rg
+BT /F2 10 Tf 1 0 0 1 54.00 415.00 Tm (What It Does) Tj ET
+0.13 0.16 0.19 rg
+BT /F1 8.8 Tf 1 0 0 1 54.00 390.00 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 390.00 Tm (Public landing page positions the app around) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 378.80 Tm (verified listings, inspection first, and safer) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 367.60 Tm (payments.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 54.00 354.40 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 354.40 Tm (Authentication supports registration, login,) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 343.20 Tm (password reset, email verification, and profile) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 332.00 Tm (management.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 54.00 318.80 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 318.80 Tm (Role-based routing gates dedicated dashboards) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 307.60 Tm (for admin/staff, landlord, tenant, and a generic) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 296.40 Tm (fallback dashboard.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 54.00 283.20 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 283.20 Tm (Users can carry landlord or tenant profile) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 272.00 Tm (records linked one-to-one with the main user) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 260.80 Tm (account.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 54.00 247.60 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 247.60 Tm (Properties store listing details,) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 236.40 Tm (rent/caution/service charges, room counts, and) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 225.20 Tm (Akure/Ondo-focused address fields.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 54.00 212.00 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 212.00 Tm (Property records track verification,) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 200.80 Tm (publication, reviewer, and physical-verification) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 189.60 Tm (timestamps.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 54.00 176.40 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 176.40 Tm (Property images and property documents support) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 165.20 Tm (cover images, sorted media, and document review) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 64.00 154.00 Tm (status.) Tj ET
+1 1 1 rg
+0.86 0.89 0.92 RG
+1 w
+315.00 464.00 255.00 196.00 re f
+315.00 464.00 255.00 196.00 re S
+0.87 0.94 0.91 rg
+315.00 634.00 255.00 26.00 re f
+0.07 0.47 0.33 rg
+BT /F2 10 Tf 1 0 0 1 327.00 643.00 Tm (How It Works) Tj ET
+0.13 0.16 0.19 rg
+BT /F1 8.8 Tf 1 0 0 1 327.00 618.00 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 618.00 Tm (HTTP requests enter Laravel via routes in) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 606.80 Tm (web.php and auth.php, then flow to Blade views) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 595.60 Tm (through lightweight controllers.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 327.00 582.40 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 582.40 Tm (EnsureRole middleware plus Spatie permission) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 571.20 Tm (roles enforce access to admin/staff, landlord,) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 560.00 Tm (and tenant dashboard areas.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 327.00 546.80 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 546.80 Tm (Eloquent models map user, landlord_profile,) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 535.60 Tm (tenant_profile, property, property_image, and) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 524.40 Tm (property_document tables.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 327.00 511.20 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 511.20 Tm (Data persists to the configured database; the) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 500.00 Tm (default repo config points to SQLite, with) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 488.80 Tm (MySQL/MariaDB/Postgres/SQL Server options also) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 477.60 Tm (defined.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 327.00 464.40 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 464.40 Tm (Uploaded file storage is wired for local/private) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 453.20 Tm (and public disks; S3 config exists, but active) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 442.00 Tm (cloud usage is Not found in repo.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 327.00 428.80 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 428.80 Tm (Frontend assets are compiled with Vite, Tailwind) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 417.60 Tm (CSS, and Alpine.js; API endpoints or separate) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 406.40 Tm (frontend services are Not found in repo.) Tj ET
+1 1 1 rg
+0.86 0.89 0.92 RG
+1 w
+315.00 235.20 255.00 146.00 re f
+315.00 235.20 255.00 146.00 re S
+0.87 0.94 0.91 rg
+315.00 355.20 255.00 26.00 re f
+0.07 0.47 0.33 rg
+BT /F2 10 Tf 1 0 0 1 327.00 364.20 Tm (How To Run) Tj ET
+0.13 0.16 0.19 rg
+BT /F1 8.8 Tf 1 0 0 1 327.00 339.20 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 339.20 Tm (From the repo root, run composer install and npm) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 328.00 Tm (install if dependencies are not already present.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 327.00 314.80 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 314.80 Tm (Create .env from .env.example, then run php) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 303.60 Tm (artisan key:generate.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 327.00 290.40 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 290.40 Tm (Run php artisan migrate --seed to create tables,) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 279.20 Tm (roles, and the seeded admin account.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 327.00 266.00 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 266.00 Tm (Start local development with composer run dev,) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 254.80 Tm (then open the app at the APP_URL value.) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 327.00 241.60 Tm (-) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 241.60 Tm (Seeded admin login from repo seeder:) Tj ET
+BT /F1 8.8 Tf 1 0 0 1 337.00 230.40 Tm (admin@verifyhomes.test / password123.) Tj ET
+1 1 1 rg
+0.86 0.89 0.92 RG
+1 w
+315.00 115.20 255.00 90.00 re f
+315.00 115.20 255.00 90.00 re S
+0.87 0.94 0.91 rg
+315.00 179.20 255.00 26.00 re f
+0.07 0.47 0.33 rg
+BT /F2 10 Tf 1 0 0 1 327.00 188.20 Tm (Notes) Tj ET
+0.13 0.16 0.19 rg
+BT /F1 8.6 Tf 1 0 0 1 327.00 163.20 Tm (-) Tj ET
+BT /F1 8.6 Tf 1 0 0 1 337.00 163.20 Tm (Role self-selection during registration is Not) Tj ET
+BT /F1 8.6 Tf 1 0 0 1 337.00 152.40 Tm (found in repo.) Tj ET
+BT /F1 8.6 Tf 1 0 0 1 327.00 139.60 Tm (-) Tj ET
+BT /F1 8.6 Tf 1 0 0 1 337.00 139.60 Tm (Listing submission, search, favorites, and) Tj ET
+BT /F1 8.6 Tf 1 0 0 1 337.00 128.80 Tm (payment-processing implementation are referenced) Tj ET
+BT /F1 8.6 Tf 1 0 0 1 337.00 118.00 Tm (in copy but not present as completed features in) Tj ET
+BT /F1 8.6 Tf 1 0 0 1 337.00 107.20 Tm (this codebase.) Tj ET
+0.86 0.89 0.92 RG
+1 w
+42.00 34.00 m 570.00 34.00 l S
+0.35 0.40 0.45 rg
+BT /F1 8 Tf 1 0 0 1 42.00 22.00 Tm (Evidence sources: routes, migrations, models, seeded roles/admin, Blade dashboards, and environment/config files in this) Tj ET
+BT /F1 8 Tf 1 0 0 1 42.00 12.00 Tm (repository.) Tj ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000321 00000 n 
+0000000396 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+9155
+%%EOF

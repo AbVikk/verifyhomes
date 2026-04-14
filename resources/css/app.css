@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+    :root {
+        --vh-surface-radius: 7px;
+        --vh-subtle-surface-radius: 6px;
+    }
+
+    .vh-surface {
+        border-radius: var(--vh-surface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.93));
+        border-color: rgb(203 213 225 / 0.95);
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.85) inset,
+            0 0 0 1px rgba(255, 255, 255, 0.6),
+            0 14px 28px rgba(15, 23, 42, 0.045);
+        @apply overflow-hidden border backdrop-blur-[2px];
+    }
+
+    .vh-subtle-surface {
+        border-radius: var(--vh-subtle-surface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.82));
+        border-color: rgb(203 213 225 / 0.9);
+        @apply border shadow-[0_1px_0_rgba(255,255,255,0.8)_inset];
+    }
+
+    .vh-button {
+        @apply inline-flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium shadow-[0_1px_0_rgba(255,255,255,0.16)_inset,0_10px_20px_rgba(15,23,42,0.06)] transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-60;
+    }
+
+    .vh-button-primary {
+        --tw-ring-color: rgb(2 6 23 / 0.2);
+        @apply border-slate-950 bg-slate-950 text-white hover:border-slate-900 hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    }
+
+    .vh-button-secondary {
+        --tw-ring-color: rgb(15 23 42 / 0.1);
+        @apply border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    }
+
+    .vh-button-danger {
+        --tw-ring-color: rgb(190 24 93 / 0.2);
+        @apply border-rose-800 bg-rose-800 text-white hover:border-rose-700 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    }
+
+    .vh-button.is-processing {
+        @apply cursor-wait opacity-70;
+    }
+
+    .vh-button-success {
+        --tw-ring-color: rgb(4 120 87 / 0.2);
+        @apply border-emerald-800 bg-emerald-800 text-white hover:border-emerald-700 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    }
+
+    .vh-button-blocked {
+        @apply border-slate-200 bg-slate-100 text-slate-500 shadow-none;
+    }
+
+    .vh-checkbox {
+        --tw-ring-color: rgb(15 23 42 / 0.15);
+        @apply h-4 w-4 rounded border-slate-300 text-slate-900 shadow-sm focus:ring-2;
+    }
+
+    .vh-control {
+        --tw-ring-color: rgb(15 23 42 / 0.1);
+        border-color: rgb(203 213 225 / 0.95);
+        @apply mt-1 block w-full rounded-md border bg-white px-3 py-2.5 text-sm text-slate-900 shadow-[0_1px_0_rgba(255,255,255,0.85)_inset,0_10px_20px_rgba(15,23,42,0.03)] transition placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-2;
+    }
+
+    .vh-callout {
+        border-radius: var(--vh-subtle-surface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.88));
+        border-color: rgb(203 213 225 / 0.9);
+        @apply border px-4 py-3 text-sm text-slate-700 shadow-[0_1px_0_rgba(255,255,255,0.82)_inset,0_12px_24px_rgba(15,23,42,0.03)];
+    }
+
+    .vh-modal-panel {
+        border-radius: var(--vh-surface-radius);
+        border-color: rgb(203 213 225 / 0.95);
+        @apply border bg-white shadow-[0_1px_0_rgba(255,255,255,0.85)_inset,0_24px_60px_rgba(15,23,42,0.14)];
+    }
+
+    .vh-modal-header {
+        border-color: rgb(203 213 225 / 0.9);
+        @apply border-b px-6 py-5;
+    }
+
+    .vh-modal-body {
+        background-color: rgb(248 250 252 / 0.32);
+        @apply max-h-[60vh] space-y-4 overflow-y-auto px-6 py-5 text-sm leading-6 text-slate-700;
+    }
+
+    .vh-modal-footer {
+        border-color: rgb(203 213 225 / 0.9);
+        @apply flex flex-col gap-3 border-t px-6 py-5 sm:flex-row sm:items-center sm:justify-between;
+    }
+}

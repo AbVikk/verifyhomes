@@ -1,0 +1,841 @@
+@import './app.css';
+
+html {
+    height: 100%;
+}
+
+body {
+    min-height: 100%;
+}
+
+@layer components {
+    :root {
+        --admin-surface-radius: 7px;
+        --admin-subsurface-radius: 6px;
+        --admin-tight-radius: 3px;
+    }
+
+    .admin-surface-outline {
+        border-color: rgb(203 213 225 / 0.95);
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.85) inset,
+            0 0 0 1px rgba(255, 255, 255, 0.55),
+            0 14px 28px rgba(15, 23, 42, 0.04);
+    }
+
+    .admin-shell {
+        --admin-sidebar-width: 19.5rem;
+        --admin-sidebar-collapsed-width: 6rem;
+        --admin-shell-gutter: 0rem;
+        --admin-topbar-height: 5rem;
+        @apply relative h-screen overflow-hidden;
+    }
+
+    .admin-sidebar {
+        width: var(--admin-sidebar-width);
+        @apply transition-[width] duration-200 ease-out;
+    }
+
+    .admin-sidebar-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: rgb(148 163 184 / 0.35) transparent;
+    }
+
+    .admin-main {
+        @apply relative h-screen min-w-0 flex-1;
+    }
+
+    .admin-topbar {
+        background: linear-gradient(180deg, rgba(27, 49, 81, 0.98), rgba(20, 39, 66, 0.96));
+        height: var(--admin-topbar-height);
+        border-color: rgb(255 255 255 / 0.1);
+        @apply fixed inset-x-0 top-0 z-30 border-b text-white;
+    }
+
+    .admin-topbar-inner {
+        @apply flex h-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-8;
+    }
+
+    .admin-topbar-toggle,
+    .admin-topbar-mobile-toggle {
+        border-color: rgb(255 255 255 / 0.1);
+        background-color: rgb(255 255 255 / 0.05);
+        @apply inline-flex h-10 w-10 items-center justify-center rounded-md border text-slate-100 transition hover:text-white;
+    }
+
+    .admin-topbar-toggle:hover,
+    .admin-topbar-mobile-toggle:hover {
+        background-color: rgb(255 255 255 / 0.1);
+    }
+
+    .admin-topbar-kicker {
+        @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300;
+    }
+
+    .admin-topbar-title {
+        @apply text-lg font-semibold tracking-tight text-white;
+    }
+
+    .admin-topbar-action {
+        border-color: rgb(255 255 255 / 0.1);
+        background-color: rgb(255 255 255 / 0.05);
+        @apply items-center rounded-md border px-4 py-2 text-sm font-medium text-white transition;
+    }
+
+    .admin-topbar-action:hover {
+        background-color: rgb(255 255 255 / 0.1);
+    }
+
+    .admin-topbar-search {
+        border-color: rgb(255 255 255 / 0.1);
+        background-color: rgb(255 255 255 / 0.05);
+        @apply hidden h-11 min-w-[20rem] items-center gap-3 rounded-md border px-4 text-slate-200 lg:flex;
+    }
+
+    .admin-topbar-search-icon {
+        @apply shrink-0 text-slate-300;
+    }
+
+    .admin-topbar-search-input {
+        @apply w-full border-0 bg-transparent p-0 text-sm text-white placeholder:text-slate-300 focus:outline-none focus:ring-0;
+    }
+
+    .admin-topbar-icon-button {
+        border-color: rgb(255 255 255 / 0.1);
+        background-color: rgb(255 255 255 / 0.05);
+        @apply h-10 w-10 items-center justify-center rounded-md border text-slate-100 transition hover:text-white;
+    }
+
+    .admin-topbar-icon-button:hover {
+        background-color: rgb(255 255 255 / 0.1);
+    }
+
+    .admin-topbar-profile {
+        @apply relative;
+    }
+
+    .admin-topbar-profile-trigger {
+        border-color: rgb(255 255 255 / 0.1);
+        background-color: rgb(255 255 255 / 0.05);
+        @apply inline-flex items-center gap-2 rounded-md border px-2 py-2 text-left text-white transition;
+    }
+
+    .admin-topbar-profile-trigger:hover {
+        background-color: rgb(255 255 255 / 0.1);
+    }
+
+    .admin-topbar-profile-avatar {
+        border-color: rgb(255 255 255 / 0.1);
+        background-color: rgb(255 255 255 / 0.1);
+        @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border text-sm font-semibold text-white;
+    }
+
+    .admin-topbar-dropdown {
+        background-color: rgba(2, 6, 23, 0.98);
+        border-color: rgb(30 41 59 / 0.8);
+        @apply absolute right-0 top-[calc(100%+0.75rem)] z-40 w-64 rounded-md border p-2 shadow-2xl;
+    }
+
+    .admin-topbar-dropdown-header {
+        border-color: rgb(255 255 255 / 0.1);
+        @apply border-b px-3 py-3;
+    }
+
+    .admin-topbar-dropdown-name {
+        @apply truncate text-sm font-semibold text-white;
+    }
+    
+    .admin-topbar-dropdown-email {
+        @apply mt-1 truncate text-xs text-slate-400;
+    }
+
+    .admin-topbar-dropdown-links,
+    .admin-topbar-dropdown-footer {
+        @apply py-1;
+    }
+
+    .admin-topbar-dropdown-link {
+        @apply flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-slate-200 transition hover:text-white;
+    }
+
+    .admin-topbar-dropdown-link:hover {
+        background-color: rgb(255 255 255 / 0.05);
+    }
+
+    .admin-topbar-dropdown-danger {
+        @apply text-left text-rose-200 hover:text-rose-100;
+    }
+
+    .admin-topbar-dropdown-danger:hover {
+        background-color: rgb(244 63 94 / 0.1);
+    }
+
+    .admin-content-scroll {
+        @apply h-screen overflow-y-auto overflow-x-hidden;
+        padding-top: var(--admin-topbar-height);
+    }
+
+    .admin-content {
+        @apply min-h-full;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-main {
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar {
+        width: var(--admin-sidebar-collapsed-width);
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-brand {
+        @apply justify-center;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-logo {
+        @apply h-10;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] [data-admin-sidebar-text] {
+        @apply hidden;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] [data-admin-sidebar-icon-only] {
+        @apply inline-flex;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-summary {
+        @apply hidden;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-link {
+        @apply justify-center px-2;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-link-icon {
+        @apply h-11 w-11;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account {
+        @apply px-2 py-3;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-avatar {
+        @apply mx-auto;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions {
+        @apply mt-3 flex-col;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions a,
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions button {
+        @apply px-2;
+    }
+
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions a,
+    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions form {
+        @apply flex-auto;
+    }
+
+    @screen lg {
+        .admin-main {
+            margin-left: calc(var(--admin-sidebar-width) + var(--admin-shell-gutter));
+        }
+
+        .admin-topbar {
+            left: calc(var(--admin-sidebar-width) + var(--admin-shell-gutter));
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-main {
+            margin-left: calc(var(--admin-sidebar-collapsed-width) + var(--admin-shell-gutter));
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-topbar {
+            left: calc(var(--admin-sidebar-collapsed-width) + var(--admin-shell-gutter));
+        }
+    }
+
+    .admin-deep-text {
+        color: #0f2747;
+    }
+
+    .admin-page {
+        @apply py-10;
+    }
+
+    .admin-page-inner {
+        @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6;
+    }
+
+    .admin-surface {
+        border-radius: var(--admin-surface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.9));
+        @apply admin-surface-outline border bg-transparent backdrop-blur-[2px];
+    }
+
+    .admin-surface-content {
+        @apply p-6;
+    }
+
+    .admin-subsurface {
+        border-radius: var(--admin-subsurface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 250, 252, 0.78));
+        border-color: rgb(203 213 225 / 0.85);
+        @apply border bg-transparent shadow-[0_1px_0_rgba(255,255,255,0.75)_inset];
+    }
+
+    .admin-table-head {
+        background-color: rgb(248 250 252 / 0.88);
+    }
+
+    .admin-table-head-cell {
+        @apply px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500;
+    }
+
+    .admin-table-body {
+        background-color: rgb(255 255 255 / 0.78);
+        @apply divide-y divide-slate-200;
+    }
+
+    .admin-header-band {
+        border-color: rgb(226 232 240 / 0.8);
+        @apply border-b bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.98))] backdrop-blur;
+    }
+
+    .admin-header-shell {
+        border-radius: var(--admin-surface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.92));
+        @apply admin-surface-outline border bg-transparent;
+    }
+
+    .admin-header-action {
+        border-radius: 3px;
+        border-color: rgb(203 213 225 / 0.9);
+        background-color: rgb(255 255 255 / 0.86);
+        @apply inline-flex items-center border px-4 py-2 text-sm font-medium text-slate-700 shadow-[0_1px_0_rgba(255,255,255,0.8)_inset,0_10px_20px_rgba(15,23,42,0.03)] hover:border-slate-400 hover:bg-white hover:text-slate-950;
+    }
+
+    .admin-alert {
+        border-radius: 3px;
+        @apply border px-4 py-3 shadow-[0_1px_0_rgba(255,255,255,0.78)_inset,0_10px_22px_rgba(15,23,42,0.035)];
+    }
+
+    .admin-alert-success {
+        border-color: rgb(110 231 183 / 0.9);
+        background-color: rgb(236 253 245 / 0.78);
+        @apply text-emerald-900;
+    }
+
+    .admin-alert-warning {
+        border-color: rgb(252 211 77 / 0.9);
+        background-color: rgb(255 251 235 / 0.82);
+        @apply text-amber-900;
+    }
+
+    .admin-alert-error {
+        border-color: rgb(253 164 175 / 0.9);
+        background-color: rgb(255 241 242 / 0.82);
+        @apply text-rose-900;
+    }
+
+    .admin-alert-info {
+        border-color: rgb(125 211 252 / 0.9);
+        background-color: rgb(240 249 255 / 0.8);
+        @apply text-sky-900;
+    }
+
+    .admin-flash-success {
+        @apply admin-alert admin-alert-success;
+    }
+
+    .admin-label {
+        color: #304967;
+        @apply block text-sm font-medium;
+    }
+
+    .admin-help {
+        color: #5f748f;
+        @apply mt-2 text-sm leading-6;
+    }
+
+    .admin-error {
+        @apply mt-2 text-sm font-medium text-rose-700;
+    }
+
+    .admin-control {
+        border-radius: 3px;
+        color: #0f2747;
+        --tw-ring-color: rgb(14 165 233 / 0.15);
+        border-color: rgb(203 213 225 / 0.95);
+        @apply mt-2 block w-full border bg-white px-3 py-2.5 text-sm shadow-[0_1px_0_rgba(255,255,255,0.88)_inset,0_10px_20px_rgba(15,23,42,0.025)] transition placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-2;
+    }
+
+    .admin-control-select {
+        @apply pr-10;
+    }
+
+    .admin-control-textarea {
+        @apply min-h-[7rem] resize-y;
+    }
+
+    .admin-button {
+        border-radius: 3px;
+        @apply inline-flex items-center justify-center gap-2 border px-4 py-2 text-sm font-medium shadow-[0_1px_0_rgba(255,255,255,0.16)_inset,0_10px_20px_rgba(15,23,42,0.06)] transition duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .admin-button-sm {
+        @apply px-3 py-2 text-sm;
+    }
+
+    .admin-button-primary {
+        --tw-ring-color: rgb(2 6 23 / 0.2);
+        @apply border-slate-950 bg-slate-950 text-white hover:border-slate-900 hover:bg-slate-900 focus:outline-none focus:ring-2;
+    }
+
+    .admin-button-secondary {
+        --tw-ring-color: rgb(15 23 42 / 0.1);
+        @apply border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus:ring-2;
+    }
+
+    .admin-button-success {
+        --tw-ring-color: rgb(4 120 87 / 0.2);
+        @apply border-emerald-800 bg-emerald-800 text-white hover:border-emerald-700 hover:bg-emerald-700 focus:outline-none focus:ring-2;
+    }
+
+    .admin-button-warning {
+        --tw-ring-color: rgb(180 83 9 / 0.2);
+        @apply border-amber-700 bg-amber-700 text-white hover:border-amber-600 hover:bg-amber-600 focus:outline-none focus:ring-2;
+    }
+
+    .admin-button-danger {
+        --tw-ring-color: rgb(190 24 93 / 0.2);
+        @apply border-rose-800 bg-rose-800 text-white hover:border-rose-700 hover:bg-rose-700 focus:outline-none focus:ring-2;
+    }
+
+    .admin-button-quiet {
+        @apply border-transparent bg-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-950;
+    }
+
+    .admin-button.is-processing {
+        @apply cursor-wait opacity-70;
+    }
+
+    .admin-button-blocked {
+        @apply border-slate-200 bg-slate-100 text-slate-500 shadow-none;
+    }
+
+    .admin-checkbox {
+        border-radius: 3px;
+        --tw-ring-color: rgb(14 165 233 / 0.2);
+        @apply h-4 w-4 border-slate-300 text-slate-900 shadow-sm focus:ring-2;
+    }
+
+    .admin-bulk-bar {
+        border-radius: 3px;
+        border-color: rgb(203 213 225 / 0.9);
+        background-color: rgb(248 250 252 / 0.85);
+        @apply flex flex-col gap-3 border px-4 py-3 shadow-[0_1px_0_rgba(255,255,255,0.82)_inset] md:flex-row md:items-center md:justify-between;
+    }
+
+    .admin-bulk-count {
+        color: #304967;
+        @apply text-sm font-medium;
+    }
+
+    .admin-action-link {
+        @apply inline-flex items-center text-sm font-medium text-slate-700 transition hover:text-slate-950;
+    }
+
+    .admin-badge {
+        border-radius: 9999px;
+        @apply inline-flex items-center border px-3 py-1 text-xs font-medium;
+    }
+
+    .admin-badge-neutral {
+        background-color: rgb(241 245 249 / 0.92);
+        @apply border-slate-300 text-slate-700;
+    }
+
+    .admin-badge-info {
+        background-color: rgb(224 242 254 / 0.9);
+        @apply border-sky-300 text-sky-800;
+    }
+
+    .admin-badge-success {
+        background-color: rgb(209 250 229 / 0.9);
+        @apply border-emerald-300 text-emerald-800;
+    }
+
+    .admin-badge-warning {
+        background-color: rgb(254 243 199 / 0.9);
+        @apply border-amber-300 text-amber-800;
+    }
+
+    .admin-badge-danger {
+        background-color: rgb(255 228 230 / 0.9);
+        @apply border-rose-300 text-rose-800;
+    }
+
+    .admin-stat-card {
+        @apply relative flex h-full flex-col overflow-hidden;
+    }
+
+    .admin-stat-accent {
+        background-color: rgb(203 213 225 / 0.7);
+        @apply absolute inset-x-0 top-0 h-px;
+    }
+
+    .admin-stat-shell {
+        @apply grid grid-cols-[auto_minmax(0,1fr)] items-start gap-4;
+    }
+
+    .admin-stat-copy {
+        @apply min-w-0 self-stretch;
+    }
+
+    .admin-stat-label {
+        color: #4b6484;
+        @apply text-xs font-semibold uppercase tracking-[0.18em];
+    }
+
+    .admin-stat-value {
+        color: #0f2747;
+        @apply mt-3 text-3xl font-semibold tracking-tight;
+    }
+
+    .admin-stat-note {
+        color: #59708c;
+        @apply mt-3 flex items-start gap-2 text-xs font-medium leading-5;
+    }
+
+    .admin-stat-dot {
+        background-color: #20436f;
+        @apply mt-1 inline-flex h-2 w-2 shrink-0 rounded-full;
+    }
+
+    .admin-stat-icon {
+        border-radius: 3px;
+        color: #0f2747;
+        border-color: rgb(226 232 240 / 0.9);
+        background-color: rgb(248 250 252 / 0.35);
+        @apply inline-flex h-11 w-11 shrink-0 items-center justify-center border;
+    }
+
+    .admin-stat-sparkline {
+        color: #6f85a0;
+        @apply mt-auto pt-5 h-10 w-full;
+    }
+
+    .admin-stat-sparkline path {
+        stroke: currentColor;
+        stroke-width: 1.5;
+        fill: none;
+        stroke-linecap: square;
+        stroke-linejoin: miter;
+        opacity: 0.9;
+    }
+
+    .admin-stat-sparkline .admin-stat-sparkline-guide {
+        stroke-width: 1;
+        opacity: 0.28;
+    }
+
+    .admin-data-box {
+        border-radius: var(--admin-subsurface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(248, 250, 252, 0.82));
+        border-color: rgb(203 213 225 / 0.9);
+        @apply border bg-transparent p-4 shadow-[0_1px_0_rgba(255,255,255,0.78)_inset];
+    }
+
+    .admin-data-box-success {
+        border-radius: var(--admin-subsurface-radius);
+        background:
+            linear-gradient(180deg, rgba(236, 253, 245, 0.72), rgba(240, 253, 250, 0.66));
+        border-color: rgb(110 231 183 / 0.9);
+        @apply border bg-transparent p-4 shadow-[0_1px_0_rgba(255,255,255,0.78)_inset];
+    }
+
+    .admin-eyebrow {
+        color: #4b6484;
+        @apply text-[11px] font-semibold uppercase tracking-[0.22em];
+    }
+
+    .admin-panel-title {
+        color: #0f2747;
+        @apply mt-2 text-xl font-semibold tracking-tight;
+    }
+
+    .admin-panel-copy {
+        color: #5f748f;
+        @apply mt-1 max-w-3xl text-sm leading-6;
+    }
+
+    .admin-micro-stat {
+        border-radius: var(--admin-subsurface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.85));
+        border-color: rgb(203 213 225 / 0.9);
+        @apply flex min-h-24 flex-col justify-between border px-4 py-4 shadow-[0_1px_0_rgba(255,255,255,0.78)_inset];
+    }
+
+    .admin-micro-stat-label {
+        color: #4b6484;
+        @apply block text-[11px] font-semibold uppercase tracking-[0.16em];
+    }
+
+    .admin-micro-stat-value {
+        color: #0f2747;
+        @apply mt-4 block text-2xl font-semibold tracking-tight;
+    }
+
+    .admin-chart-shell {
+        @apply space-y-4;
+    }
+
+    .admin-chart-summary {
+        @apply flex items-end gap-3;
+    }
+
+    .admin-chart-total {
+        color: #0f2747;
+        @apply text-3xl font-semibold tracking-tight;
+    }
+
+    .admin-chart-context {
+        color: #5f748f;
+        @apply pb-1 text-sm;
+    }
+
+    .admin-line-chart {
+        color: #20436f;
+        @apply h-64 w-full;
+    }
+
+    .admin-line-chart-grid {
+        fill: none;
+        stroke: rgb(203 213 225 / 0.65);
+        stroke-width: 0.7;
+        stroke-dasharray: 2 3;
+    }
+
+    .admin-line-chart-area {
+        fill: rgb(14 165 233 / 0.08);
+    }
+
+    .admin-line-chart-line {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: square;
+        stroke-linejoin: miter;
+    }
+
+    .admin-chart-axis {
+        color: #6d829c;
+        @apply flex items-center justify-between gap-3 text-[11px] font-medium uppercase tracking-[0.14em];
+    }
+
+    .admin-empty-state {
+        border-radius: var(--admin-subsurface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 250, 252, 0.78));
+        border-color: rgb(203 213 225 / 0.95);
+        @apply border border-dashed px-5 py-6 shadow-[0_1px_0_rgba(255,255,255,0.72)_inset];
+    }
+
+    .admin-empty-state-title {
+        color: #0f2747;
+        @apply text-sm font-semibold;
+    }
+
+    .admin-empty-state-copy {
+        color: #5f748f;
+        @apply mt-2 text-sm leading-6;
+    }
+
+    .admin-donut-layout {
+        @apply space-y-6;
+    }
+
+    .admin-donut-shell {
+        @apply relative mx-auto h-48 w-48;
+    }
+
+    .admin-donut-chart {
+        @apply h-full w-full -rotate-90;
+    }
+
+    .admin-donut-track {
+        fill: none;
+        stroke: rgb(226 232 240 / 0.9);
+        stroke-width: 10;
+    }
+
+    .admin-donut-segment {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 10;
+    }
+
+    .admin-donut-center {
+        @apply absolute inset-0 flex flex-col items-center justify-center text-center;
+    }
+
+    .admin-donut-total {
+        color: #0f2747;
+        @apply text-3xl font-semibold tracking-tight;
+    }
+
+    .admin-donut-label {
+        color: #4b6484;
+        @apply mt-1 text-[11px] font-semibold uppercase tracking-[0.2em];
+    }
+
+    .admin-legend-row {
+        @apply flex items-center justify-between gap-4;
+    }
+
+    .admin-legend-dot {
+        @apply inline-flex h-2.5 w-2.5 shrink-0 rounded-full;
+    }
+
+    .admin-legend-label {
+        color: #304967;
+        @apply text-sm font-medium;
+    }
+
+    .admin-legend-value {
+        color: #0f2747;
+        @apply text-sm font-semibold;
+    }
+
+    .admin-activity-feed {
+        @apply space-y-3;
+    }
+
+    .admin-activity-row {
+        border-radius: var(--admin-subsurface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.82));
+        border-color: rgb(203 213 225 / 0.85);
+        @apply flex items-start gap-4 border px-4 py-4 shadow-[0_1px_0_rgba(255,255,255,0.72)_inset];
+    }
+
+    .admin-activity-icon {
+        border-radius: 3px;
+        border-color: rgb(226 232 240 / 0.9);
+        @apply inline-flex h-10 w-10 shrink-0 items-center justify-center border text-slate-600;
+    }
+
+    .admin-activity-type {
+        color: #4b6484;
+        @apply text-[11px] font-semibold uppercase tracking-[0.18em];
+    }
+
+    .admin-activity-title {
+        color: #0f2747;
+        @apply mt-1 text-sm font-semibold;
+    }
+
+    .admin-activity-time {
+        color: #6d829c;
+        @apply text-xs font-medium uppercase tracking-[0.12em];
+    }
+
+    .admin-activity-meta {
+        color: #5f748f;
+        @apply mt-2 text-xs font-medium;
+    }
+
+    .admin-activity-note {
+        color: #5f748f;
+        @apply mt-2 max-w-3xl text-sm leading-6;
+    }
+
+    .admin-inline-link {
+        @apply mt-3 inline-flex items-center text-sm font-medium text-sky-700 hover:text-sky-900;
+    }
+
+    .admin-callout {
+        border-radius: var(--admin-subsurface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.86));
+        border-color: rgb(203 213 225 / 0.9);
+        @apply border px-4 py-3 text-sm text-slate-700 shadow-[0_1px_0_rgba(255,255,255,0.82)_inset,0_12px_24px_rgba(15,23,42,0.03)];
+    }
+
+    .admin-modal-panel {
+        border-radius: var(--admin-surface-radius);
+        border-color: rgb(203 213 225 / 0.95);
+        @apply border bg-white shadow-[0_1px_0_rgba(255,255,255,0.85)_inset,0_24px_60px_rgba(15,23,42,0.14)];
+    }
+
+    .admin-modal-header {
+        border-color: rgb(203 213 225 / 0.9);
+        @apply border-b px-6 py-5;
+    }
+
+    .admin-modal-body {
+        background-color: rgb(248 250 252 / 0.32);
+        @apply max-h-[60vh] space-y-4 overflow-y-auto px-6 py-5 text-sm leading-6 text-slate-700;
+    }
+
+    .admin-modal-footer {
+        border-color: rgb(203 213 225 / 0.9);
+        @apply flex flex-col gap-3 border-t px-6 py-5 sm:flex-row sm:items-center sm:justify-between;
+    }
+
+    .admin-progress-chart {
+        @apply h-2.5 w-full;
+    }
+
+    .admin-progress-track {
+        fill: rgb(226 232 240 / 0.85);
+    }
+
+    .admin-progress-fill {
+        fill: currentColor;
+    }
+
+    .admin-signal-row {
+        border-radius: var(--admin-subsurface-radius);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.82));
+        border-color: rgb(203 213 225 / 0.9);
+        @apply space-y-3 border px-4 py-4 shadow-[0_1px_0_rgba(255,255,255,0.72)_inset];
+    }
+
+    .admin-signal-label {
+        color: #0f2747;
+        @apply text-sm font-semibold;
+    }
+
+    .admin-signal-context {
+        color: #5f748f;
+        @apply mt-1 text-sm;
+    }
+
+    .admin-signal-value {
+        color: #0f2747;
+        @apply text-2xl font-semibold tracking-tight;
+    }
+
+    .admin-tone-slate {
+        @apply text-slate-500;
+    }
+
+    .admin-tone-sky {
+        @apply text-sky-600;
+    }
+
+    .admin-tone-emerald {
+        @apply text-emerald-600;
+    }
+
+    .admin-tone-amber {
+        @apply text-amber-500;
+    }
+}
