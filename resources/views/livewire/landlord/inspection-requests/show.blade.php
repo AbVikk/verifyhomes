@@ -127,10 +127,6 @@
                                     <dt class="font-medium text-slate-500">Current action</dt>
                                     <dd class="mt-1">{{ $this->nextStepSummary($inspectionRequest) }}</dd>
                                 </div>
-                                <div>
-                                    <dt class="font-medium text-slate-500">Payment handling</dt>
-                                    <dd class="mt-1">Payment status remains visible to tenants and admin only. Landlord payment visibility is limited to verified property payouts.</dd>
-                                </div>
                             </dl>
                         </div>
                     </x-admin.panel>

@@ -80,7 +80,9 @@
                                             {{ $request->occupancy?->property?->title ?? 'Property' }}
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
-                                            <span class="admin-badge admin-badge-neutral">{{ str($request->status)->headline() }}</span>
+                                            <x-status-chip tone="{{ $request->status === 'pending' ? 'warning' : ($request->status === 'approved' ? 'success' : 'danger') }}">
+                                                {{ str($request->status)->headline() }}
+                                            </x-status-chip>
                                             @if ($request->decision_notes)
                                                 <p class="mt-2 text-xs text-slate-500">{{ $request->decision_notes }}</p>
                                             @endif
@@ -165,7 +167,9 @@
                                             <p class="mt-2 text-xs text-slate-500">{{ $complaint->description }}</p>
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
-                                            <span class="admin-badge admin-badge-neutral">{{ str($complaint->status)->headline() }}</span>
+                                            <x-status-chip tone="{{ $complaint->status === 'resolved' ? 'success' : ($complaint->status === 'in_review' ? 'info' : 'warning') }}">
+                                                {{ str($complaint->status)->headline() }}
+                                            </x-status-chip>
                                             @if ($complaint->admin_notes)
                                                 <p class="mt-2 text-xs text-slate-500">{{ $complaint->admin_notes }}</p>
                                             @endif

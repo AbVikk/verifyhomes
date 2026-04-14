@@ -17,7 +17,9 @@
             <x-admin.empty-state
                 title="No active occupants yet."
                 copy="Once rent payments are confirmed, active occupancies will show here."
-            />
+            >
+                <a href="{{ route('landlord.properties') }}" class="admin-inline-link mt-3 inline-flex">Review listings</a>
+            </x-admin.empty-state>
         @else
             <div class="space-y-6">
                 @foreach ($occupanciesByProperty as $propertyId => $occupancies)
@@ -68,6 +70,12 @@
                                                 $isRent = ($occupancy->property?->listing_intent ?? 'for_rent') === 'for_rent';
                                                 $daysRemaining = $occupancy->daysUntilNextPayment();
                                                 $overdueDays = $occupancy->overdueDays();
+                                                $statusTone = $occupancy->status === 'moved_out'
+                                                    ? 'neutral'
+                                                    : ($occupancy->status === 'move_out_pending' ? 'warning' : 'success');
+                                                $rentTone = $overdueDays && $overdueDays > 0
+                                                    ? 'danger'
+                                                    : (($daysRemaining !== null && $daysRemaining <= 30) ? 'warning' : 'info');
                                             @endphp
                                             <tr class="align-top">
                                                 <td class="px-4 py-4 text-sm text-slate-700">
@@ -88,7 +96,7 @@
                                                     </div>
                                                 </td>
                                                 <td class="px-4 py-4 text-sm text-slate-700">
-                                                    <span class="admin-badge admin-badge-neutral">{{ str($occupancy->status)->headline() }}</span>
+                                                    <x-status-chip tone="{{ $statusTone }}">{{ str($occupancy->status)->headline() }}</x-status-chip>
                                                 </td>
                                                 <td class="px-4 py-4 text-sm text-slate-700">
                                                     {{ $dueAt && $isRent ? $dueAt->format('M j, Y') : 'Not required' }}
@@ -115,9 +123,9 @@
                                                 </td>
                                                 <td class="px-4 py-4 text-sm text-slate-700">
                                                     @if ($isRent)
-                                                        {{ $occupancy->paymentStatusLabel() }}
+                                                        <x-status-chip tone="{{ $rentTone }}">{{ $occupancy->paymentStatusLabel() }}</x-status-chip>
                                                     @else
-                                                        Purchase recorded
+                                                        <x-status-chip tone="success">Purchase recorded</x-status-chip>
                                                     @endif
                                                 </td>
                                             </tr>

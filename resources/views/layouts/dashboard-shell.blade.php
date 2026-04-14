@@ -31,6 +31,11 @@
     $quickSearchRoute = $shellKey === 'landlord' && \Illuminate\Support\Facades\Route::has('landlord.search')
         ? route('landlord.search')
         : null;
+    $notificationsIndexRoute = match ($shellKey) {
+        'landlord' => \Illuminate\Support\Facades\Route::has('landlord.notifications.index') ? route('landlord.notifications.index') : null,
+        'tenant' => \Illuminate\Support\Facades\Route::has('tenant.notifications.index') ? route('tenant.notifications.index') : null,
+        default => null,
+    };
 @endphp
 
 <!DOCTYPE html>
@@ -304,6 +309,11 @@
                                                 </div>
                                             @endforelse
                                         </div>
+                                        @if ($notificationsIndexRoute)
+                                            <div class="admin-topbar-dropdown-footer">
+                                                <a href="{{ $notificationsIndexRoute }}" class="admin-topbar-dropdown-link">View all notifications</a>
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             @endif

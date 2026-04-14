@@ -19,6 +19,16 @@ class PurchaseWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('staff', 'web');
+        Role::findOrCreate('tenant', 'web');
+        Role::findOrCreate('landlord', 'web');
+    }
+
     public function test_buyer_can_initiate_house_purchase_payment(): void
     {
         config()->set('payments.default_provider', 'stub');
@@ -102,6 +112,56 @@ class PurchaseWorkflowTest extends TestCase
         $this->assertSame('purchase_payment', $transaction->metadata['checkout_context']);
         $this->assertSame(2, $transaction->metadata['units_reserved']);
         $this->assertSame((float) $property->rent_amount * 2, (float) $transaction->gross_amount);
+    }
+
+    public function test_land_purchase_recheckout_resets_when_quantity_changes(): void
+    {
+        config()->set('payments.default_provider', 'stub');
+
+        $tenant = $this->createTenant();
+        $property = $this->createProperty([
+            'title' => 'Land Recheckout Listing',
+            'listing_intent' => 'for_sale',
+            'property_type' => 'land',
+            'total_units' => 4,
+            'occupied_units' => 0,
+        ]);
+
+        $this->createInspectionRequest($tenant, $property, [
+            'status' => 'completed',
+            'outcome_type' => 'inspected',
+        ]);
+
+        $existing = PaymentTransactionRecorder::createPending([
+            'payer_id' => $tenant->id,
+            'property_id' => $property->id,
+            'transaction_type' => 'land_purchase_payment',
+            'gross_amount' => (float) $property->rent_amount,
+            'status' => 'initiated',
+            'provider' => 'stub',
+            'metadata' => [
+                'checkout_context' => 'purchase_payment',
+                'units_reserved' => 1,
+            ],
+        ]);
+
+        $response = $this->actingAs($tenant)
+            ->post(route('tenant.properties.purchase-payments.store', $property), [
+                'purchase_units' => 2,
+            ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseCount('payment_transactions', 2);
+
+        $existing->refresh();
+        $this->assertSame('failed', $existing->status);
+        $this->assertSame('quantity_changed', $existing->metadata['checkout_reset_reason'] ?? null);
+
+        $latest = PaymentTransaction::query()->latest('id')->first();
+
+        $this->assertSame(2, $latest->metadata['units_reserved']);
+        $this->assertSame((float) $property->rent_amount * 2, (float) $latest->gross_amount);
     }
 
     public function test_lease_listing_does_not_start_purchase_payment(): void
@@ -201,10 +261,17 @@ class PurchaseWorkflowTest extends TestCase
 
         $callbackResponse = $this->actingAs($tenant)->get(route('tenant.payments.callback', ['reference' => $transaction->reference]));
 
-        $callbackResponse->assertRedirect(route('tenant.payments.index', ['reference' => $transaction->reference]));
-
         $transaction->refresh();
         $property->refresh();
+
+        $purchase = PropertyPurchase::query()
+            ->where('payment_transaction_id', $transaction->getKey())
+            ->where('buyer_id', $tenant->id)
+            ->latest('purchased_at')
+            ->first();
+
+        $this->assertNotNull($purchase);
+        $callbackResponse->assertRedirect(route('tenant.purchases.show', $purchase));
 
         $this->assertSame('paid', $transaction->status);
         $this->assertSame('554433', $transaction->provider_reference);
@@ -313,6 +380,35 @@ class PurchaseWorkflowTest extends TestCase
             ->assertSee('Purchased properties')
             ->assertSee('Tenant Purchase Property')
             ->assertSee('Purchased');
+    }
+
+    public function test_purchase_receipt_page_renders_for_confirmed_purchase(): void
+    {
+        $tenant = $this->createTenant('receipt-buyer@example.com');
+        $property = $this->createProperty([
+            'title' => 'Receipt Listing',
+            'listing_intent' => 'for_sale',
+            'property_type' => 'flat',
+        ]);
+
+        $purchase = PropertyPurchase::create([
+            'property_id' => $property->id,
+            'buyer_id' => $tenant->id,
+            'purchase_type' => 'house',
+            'status' => 'confirmed',
+            'units' => 1,
+            'gross_amount' => $property->rent_amount,
+            'currency' => 'NGN',
+            'purchased_at' => now(),
+        ]);
+
+        $response = $this->actingAs($tenant)->get(route('tenant.purchases.show', $purchase));
+
+        $response->assertOk();
+        $response->assertSee('Purchase receipt');
+        $response->assertSee('Purchase summary');
+        $response->assertSee('Receipt Listing');
+        $response->assertSee('Purchase confirmed. Your ownership record is now on file.');
     }
 
     public function test_admin_can_view_purchase_records(): void

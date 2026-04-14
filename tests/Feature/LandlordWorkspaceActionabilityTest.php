@@ -8,7 +8,6 @@ use App\Models\LandlordProfile;
 use App\Models\Property;
 use App\Models\TenantProfile;
 use App\Models\User;
-use App\Support\PaymentTransactionRecorder;
 use App\Support\PublicPropertyVisibility;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -45,7 +44,7 @@ class LandlordWorkspaceActionabilityTest extends TestCase
         $response = $this->actingAs($landlord)->get(route('landlord.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('What to do next');
+        $response->assertSee('What needs your attention');
         $response->assertSee('Follow through on the latest inspection request');
         $response->assertSee('Manage Inspection Requests');
         $response->assertSee('Pending Review Listing');
@@ -110,32 +109,20 @@ class LandlordWorkspaceActionabilityTest extends TestCase
             'scheduled_at' => now()->addDay(),
         ]);
 
-        $transaction = PaymentTransactionRecorder::createPending([
-            'payer_id' => $inspectionRequest->tenant_id,
-            'property_id' => $property->id,
-            'inspection_request_id' => $inspectionRequest->id,
-            'transaction_type' => 'inspection_booking_fee',
-            'gross_amount' => 5000,
-            'status' => 'paid',
-            'provider' => 'stub',
-        ]);
-
         $indexResponse = $this->actingAs($landlord)->get(route('landlord.inspection-requests.index'));
 
         $indexResponse->assertOk();
-        $indexResponse->assertSee('Booking fee verified');
-        $indexResponse->assertSee('Visit booked. Fee confirmed. Keep access ready.');
-        $indexResponse->assertSee($transaction->reference);
+        $indexResponse->assertSee('Visit booked. Keep access ready.');
+        $indexResponse->assertDontSee('Booking fee verified');
+        $indexResponse->assertDontSee('Fee confirmed');
 
         $showResponse = $this->actingAs($landlord)->get(route('landlord.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]));
 
         $showResponse->assertOk();
         $showResponse->assertSee('Next step');
-        $showResponse->assertSee('Payment status');
-        $showResponse->assertSee('Booking fee verified. Admin can move the request forward.');
         $showResponse->assertSee('Share access details or readiness notes with admin.');
-        $showResponse->assertSee($transaction->reference);
-        $showResponse->assertSee('Stub Gateway');
+        $showResponse->assertDontSee('Booking fee');
+        $showResponse->assertDontSee('Payment status');
         $showResponse->assertSee('href="'.route('landlord.properties.edit', $property).'"', false);
     }
 

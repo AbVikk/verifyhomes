@@ -20,6 +20,9 @@
     $quickSearchRoute = \Illuminate\Support\Facades\Route::has('admin.search')
         ? route('admin.search')
         : null;
+    $notificationsIndexRoute = \Illuminate\Support\Facades\Route::has('admin.notifications.index')
+        ? route('admin.notifications.index')
+        : null;
     $navigationLinks = [
         [
             'label' => 'Admin Dashboard',
@@ -371,6 +374,11 @@
                                                 </div>
                                             @endforelse
                                         </div>
+                                        @if ($notificationsIndexRoute)
+                                            <div class="admin-topbar-dropdown-footer">
+                                                <a href="{{ $notificationsIndexRoute }}" class="admin-topbar-dropdown-link">View all notifications</a>
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             @endif

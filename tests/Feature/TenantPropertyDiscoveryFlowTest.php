@@ -89,8 +89,8 @@ class TenantPropertyDiscoveryFlowTest extends TestCase
         $response->assertSee('Saved to your shortlist');
         $response->assertSee('View request');
         $response->assertSee('Your status');
-        $response->assertSee('Payment: Paid via Stub Gateway.');
-        $response->assertSee('Payment history');
+        $response->assertSee('Inspection payment: Paid via Stub Gateway.');
+        $response->assertSee('Inspection payment history');
         $response->assertSee($paymentTransaction->reference);
         $response->assertSee('href="'.route('tenant.payments.index', ['reference' => $paymentTransaction->reference]).'"', false);
     }

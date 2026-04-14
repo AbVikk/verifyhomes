@@ -114,7 +114,7 @@ class TenantSavedListingsTest extends TestCase
         Livewire::test(PublicPropertyShow::class, ['property' => $property])
             ->call('toggleSavedProperty')
             ->assertSet('isSavedByCurrentTenant', true)
-            ->assertSee('Remove Saved Listing');
+            ->assertSee('Remove from saved');
 
         $this->assertDatabaseHas('saved_properties', [
             'tenant_id' => $tenant->id,
@@ -124,7 +124,7 @@ class TenantSavedListingsTest extends TestCase
         Livewire::test(PublicPropertyShow::class, ['property' => $property])
             ->call('toggleSavedProperty')
             ->assertSet('isSavedByCurrentTenant', false)
-            ->assertSee('Save Listing');
+            ->assertSee('Save listing');
 
         $this->assertDatabaseMissing('saved_properties', [
             'tenant_id' => $tenant->id,
@@ -140,7 +140,7 @@ class TenantSavedListingsTest extends TestCase
         $initialResponse = $this->actingAs($tenant)->get(route('properties.show', $property));
 
         $initialResponse->assertOk();
-        $initialResponse->assertSee('Save Listing');
+        $initialResponse->assertSee('Save listing');
         $initialResponse->assertSee('Not saved yet');
 
         $tenant->savedProperties()->syncWithoutDetaching([$property->id]);
@@ -148,7 +148,7 @@ class TenantSavedListingsTest extends TestCase
         $savedResponse = $this->actingAs($tenant)->get(route('properties.show', $property));
 
         $savedResponse->assertOk();
-        $savedResponse->assertSee('Remove Saved Listing');
+        $savedResponse->assertSee('Remove from saved');
         $savedResponse->assertSee('Saved to your shortlist');
     }
 

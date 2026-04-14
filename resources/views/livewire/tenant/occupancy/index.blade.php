@@ -27,7 +27,9 @@
                         <x-admin.empty-state
                             title="No purchases yet."
                             copy="When a purchase payment is confirmed, it will appear here."
-                        />
+                        >
+                            <a href="{{ route('properties.index') }}" class="admin-inline-link mt-3 inline-flex">Browse listings</a>
+                        </x-admin.empty-state>
                     @else
                         <div class="grid gap-4 lg:grid-cols-2">
                             @foreach ($purchases as $purchase)
@@ -48,7 +50,7 @@
                                         <div class="min-w-0 space-y-2">
                                             <div class="flex flex-wrap items-center gap-2">
                                                 <h4 class="text-base font-semibold text-slate-950">{{ $purchaseProperty?->title ?? 'Property' }}</h4>
-                                                <span class="admin-badge admin-badge-success">Purchased</span>
+                                                <x-status-chip tone="success">Purchased</x-status-chip>
                                             </div>
                                             <p class="text-sm text-slate-600">
                                                 {{ $purchaseProperty?->listingIntentLabel() ?? 'For sale' }} - {{ $purchase->purchaseTypeLabel() }}
@@ -87,7 +89,9 @@
             <x-admin.empty-state
                 title="You do not have an active occupancy yet."
                 copy="Once your rent payment is confirmed, your occupancy details will show here."
-            />
+            >
+                <a href="{{ route('tenant.payments.index') }}" class="admin-inline-link mt-3 inline-flex">View payments</a>
+            </x-admin.empty-state>
         @else
             <div class="space-y-6">
                 @foreach ($occupancies as $occupancy)
@@ -98,6 +102,12 @@
                         $dueAt = $occupancy->computedNextPaymentDueAt();
                         $daysRemaining = $occupancy->daysUntilNextPayment();
                         $overdueDays = $occupancy->overdueDays();
+                        $statusTone = $occupancy->status === 'moved_out'
+                            ? 'neutral'
+                            : ($occupancy->status === 'move_out_pending' ? 'warning' : 'success');
+                        $paymentTone = $overdueDays && $overdueDays > 0
+                            ? 'danger'
+                            : (($daysRemaining !== null && $daysRemaining <= 30) ? 'warning' : 'info');
                     @endphp
 
                     <x-admin.panel>
@@ -128,14 +138,14 @@
                                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Payment status</p>
                                         @if (($property?->listing_intent ?? 'for_rent') !== 'for_rent')
                                             @if (($property?->listing_intent ?? 'for_rent') === 'for_sale')
-                                                <p class="mt-1 text-sm font-medium text-slate-900">Purchase recorded</p>
+                                                <x-status-chip tone="success" class="mt-2">Purchase recorded</x-status-chip>
                                                 <p class="mt-1 text-sm text-slate-600">You are recorded as a buyer. Ongoing rent scheduling is not required.</p>
                                             @else
-                                                <p class="mt-1 text-sm font-medium text-slate-900">Lease coordination</p>
+                                                <x-status-chip tone="info" class="mt-2">Lease coordination</x-status-chip>
                                                 <p class="mt-1 text-sm text-slate-600">Lease activity is tracked here once the workflow is confirmed.</p>
                                             @endif
                                         @else
-                                            <p class="mt-1 text-sm font-medium text-slate-900">{{ $occupancy->paymentStatusLabel() }}</p>
+                                            <x-status-chip tone="{{ $paymentTone }}" class="mt-2">{{ $occupancy->paymentStatusLabel() }}</x-status-chip>
                                             <p class="mt-1 text-sm text-slate-600">
                                                 Next due date: {{ $dueAt ? $dueAt->format('M j, Y') : 'Unavailable' }}
                                             </p>
@@ -148,7 +158,7 @@
                                     </div>
                                     <div>
                                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Stay status</p>
-                                        <p class="mt-1 text-sm font-medium text-slate-900">{{ str($occupancy->status)->headline() }}</p>
+                                        <x-status-chip tone="{{ $statusTone }}" class="mt-2">{{ str($occupancy->status)->headline() }}</x-status-chip>
                                         <p class="mt-1 text-sm text-slate-600">Units held: {{ $occupancy->units }}</p>
                                     </div>
                                 </div>
