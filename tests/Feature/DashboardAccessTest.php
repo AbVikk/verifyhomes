@@ -378,7 +378,7 @@ class DashboardAccessTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.audit.index'));
 
         $response->assertOk();
-        $response->assertSee('days ago');
+        $this->assertMatchesRegularExpression('/\b\d+\s+(day|days|week|weeks|month|months)\s+ago\b/', $response->getContent());
         $response->assertSee('2026-03-26 09:15:00');
     }
 

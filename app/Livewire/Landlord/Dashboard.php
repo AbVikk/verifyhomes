@@ -132,6 +132,7 @@ class Dashboard extends Component
             $documentsAvailable,
             $documentCount,
             $propertyCount,
+            $profile->canCreateProperties(),
         );
         $nextActions = $recommendedActions;
 
@@ -320,6 +321,7 @@ class Dashboard extends Component
         bool $documentsAvailable,
         int $documentCount,
         int $propertyCount,
+        bool $canCreateProperties,
     ): array {
         return [
             [
@@ -335,7 +337,7 @@ class Dashboard extends Component
             [
                 'label' => 'Create your first listing',
                 'complete' => $propertyCount > 0,
-                'href' => route('landlord.properties.create'),
+                'href' => $canCreateProperties ? route('landlord.properties.create') : route('landlord.properties'),
             ],
         ];
     }

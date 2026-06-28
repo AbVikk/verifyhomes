@@ -4,7 +4,7 @@
             <div class="space-y-2">
                 <p class="admin-eyebrow">Notifications</p>
                 <h2 class="admin-panel-title">Operational updates</h2>
-                <p class="admin-panel-copy">Payment confirmations, complaints, and move-out requests are collected here.</p>
+                <p class="admin-panel-copy">Payment confirmations, rent reminders, complaints, and move-out requests are collected here.</p>
             </div>
         </x-admin.panel>
 

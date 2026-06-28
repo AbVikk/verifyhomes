@@ -132,13 +132,16 @@ class PublicPropertyAndInspectionTest extends TestCase
     {
         $tenant = $this->createTenant();
         $property = $this->createPublicProperty();
+        $gate = 'inspection-request:property:'.$property->id;
 
-        $response = $this->actingAs($tenant)->post(route('inspection-requests.store', $property), [
-            'accepted_inspection_terms' => '1',
-            'preferred_date' => now()->addDays(3)->toDateString(),
-            'preferred_time_note' => 'After 4pm',
-            'message' => 'I would like to inspect this on a weekday.',
-        ]);
+        $response = $this->actingAs($tenant)
+            ->withSession($this->completedTermsGateSession($gate))
+            ->post(route('inspection-requests.store', $property), [
+                'accepted_inspection_terms' => '1',
+                'preferred_date' => now()->addDays(3)->toDateString(),
+                'preferred_time_note' => 'After 4pm',
+                'message' => 'I would like to inspect this on a weekday.',
+            ]);
 
         $response->assertRedirect(route('properties.show', $property));
         $this->assertDatabaseHas('inspection_requests', [
@@ -1132,5 +1135,19 @@ class PublicPropertyAndInspectionTest extends TestCase
         ]);
 
         return $inspectionRequest;
+    }
+
+    protected function completedTermsGateSession(string $gate): array
+    {
+        $completedAt = now();
+        $openedAt = $completedAt->copy()->subSeconds(11);
+
+        return [
+            'terms_gates.'.md5($gate) => [
+                'opened_at' => $openedAt->toIso8601String(),
+                'opened_at_ms' => $openedAt->getTimestampMs(),
+                'completed_at' => $completedAt->toIso8601String(),
+            ],
+        ];
     }
 }

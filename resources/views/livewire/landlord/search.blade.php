@@ -60,9 +60,10 @@
                         @else
                             <div class="space-y-3">
                                 @foreach ($results['tenants'] as $tenant)
-                                    <a href="{{ route('landlord.inspection-requests.index') }}" class="block rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:bg-slate-50">
+                                    <a href="{{ route('landlord.occupancy.index', ['tenant' => $tenant->id]) }}" class="block rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:bg-slate-50">
                                         <p class="text-sm font-semibold text-slate-900">{{ $tenant->name }}</p>
                                         <p class="mt-1 text-xs text-slate-500">{{ $tenant->email }}</p>
+                                        <p class="mt-2 text-xs font-medium text-emerald-700">View occupancy</p>
                                     </a>
                                 @endforeach
                             </div>

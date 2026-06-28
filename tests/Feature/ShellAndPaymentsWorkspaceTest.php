@@ -18,6 +18,16 @@ class ShellAndPaymentsWorkspaceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('staff', 'web');
+        Role::findOrCreate('tenant', 'web');
+        Role::findOrCreate('landlord', 'web');
+    }
+
     public function test_authenticated_landlord_browse_and_public_listing_pages_stay_inside_landlord_shell(): void
     {
         $landlord = $this->createLandlord();
@@ -357,7 +367,9 @@ class ShellAndPaymentsWorkspaceTest extends TestCase
 
         $this->actingAs($landlord)->get(route('landlord.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]))
             ->assertOk()
-            ->assertSee('Payment status remains visible to tenants and admin only.');
+            ->assertSee('Share access details or readiness notes with admin.')
+            ->assertDontSee('Payment status')
+            ->assertDontSee('Booking fee');
 
         $this->actingAs($admin)->get(route('admin.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]))
             ->assertOk()

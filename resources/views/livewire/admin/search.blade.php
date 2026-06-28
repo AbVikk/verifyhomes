@@ -59,10 +59,10 @@
                             />
                         @else
                             <div class="space-y-3">
-                                @foreach ($results['tenants'] as $tenant)
-                                    <a href="{{ route('admin.tenants.show', $tenant) }}" class="block rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:bg-slate-50">
-                                        <p class="text-sm font-semibold text-slate-900">{{ $tenant->name }}</p>
-                                        <p class="mt-1 text-xs text-slate-500">{{ $tenant->email }}</p>
+                                @foreach ($results['tenants'] as $tenantProfile)
+                                    <a href="{{ route('admin.tenants.show', $tenantProfile) }}" class="block rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:bg-slate-50">
+                                        <p class="text-sm font-semibold text-slate-900">{{ $tenantProfile->user?->name }}</p>
+                                        <p class="mt-1 text-xs text-slate-500">{{ $tenantProfile->user?->email }}</p>
                                     </a>
                                 @endforeach
                             </div>
@@ -83,10 +83,10 @@
                             />
                         @else
                             <div class="space-y-3">
-                                @foreach ($results['landlords'] as $landlord)
-                                    <a href="{{ route('admin.landlords.show', $landlord->landlordProfile) }}" class="block rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:bg-slate-50">
-                                        <p class="text-sm font-semibold text-slate-900">{{ $landlord->name }}</p>
-                                        <p class="mt-1 text-xs text-slate-500">{{ $landlord->email }}</p>
+                                @foreach ($results['landlords'] as $landlordProfile)
+                                    <a href="{{ route('admin.landlords.show', $landlordProfile) }}" class="block rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:bg-slate-50">
+                                        <p class="text-sm font-semibold text-slate-900">{{ $landlordProfile->user?->name }}</p>
+                                        <p class="mt-1 text-xs text-slate-500">{{ $landlordProfile->user?->email }}</p>
                                     </a>
                                 @endforeach
                             </div>

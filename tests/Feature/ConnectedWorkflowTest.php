@@ -20,6 +20,16 @@ class ConnectedWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('staff', 'web');
+        Role::findOrCreate('tenant', 'web');
+        Role::findOrCreate('landlord', 'web');
+    }
+
     public function test_successful_completed_rent_payment_deducts_units_once_and_updates_availability_display(): void
     {
         $tenant = $this->createTenant();

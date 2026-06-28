@@ -20,6 +20,16 @@ class PaymentFoundationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('staff', 'web');
+        Role::findOrCreate('tenant', 'web');
+        Role::findOrCreate('landlord', 'web');
+    }
+
     public function test_payment_transaction_recorder_creates_a_pending_transaction_with_platform_fee_breakdown(): void
     {
         $transaction = PaymentTransactionRecorder::createPending([

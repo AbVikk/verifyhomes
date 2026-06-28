@@ -4,7 +4,7 @@
             <div class="space-y-2">
                 <p class="admin-eyebrow">Notifications</p>
                 <h2 class="admin-panel-title">Landlord updates</h2>
-                <p class="admin-panel-copy">Payment confirmations, inspection coordination, and tenant updates appear here.</p>
+                <p class="admin-panel-copy">Paid property money, rent reminders, and tenant updates appear here.</p>
             </div>
         </x-admin.panel>
 

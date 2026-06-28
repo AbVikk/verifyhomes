@@ -22,6 +22,16 @@ class OccupancyWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Role::findOrCreate('admin', 'web');
+        Role::findOrCreate('staff', 'web');
+        Role::findOrCreate('tenant', 'web');
+        Role::findOrCreate('landlord', 'web');
+    }
+
     public function test_tenant_can_access_the_occupancy_page(): void
     {
         $tenant = $this->createTenant();

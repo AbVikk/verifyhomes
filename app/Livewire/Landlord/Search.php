@@ -24,6 +24,8 @@ class Search extends Component
     public function render()
     {
         $query = trim($this->q);
+        $normalized = mb_strtolower($query);
+        $like = '%'.$query.'%';
         $results = [
             'properties' => new Collection(),
             'tenants' => new Collection(),
@@ -33,30 +35,48 @@ class Search extends Component
         if (mb_strlen($query) >= 2) {
             $results['properties'] = Property::query()
                 ->where('landlord_id', $this->currentUserId())
-                ->where('title', 'like', '%'.$query.'%')
+                ->where('title', 'like', $like)
+                ->orderByRaw('CASE WHEN LOWER(title) = ? THEN 0 WHEN title LIKE ? THEN 1 ELSE 2 END', [
+                    $normalized,
+                    $like,
+                ])
                 ->latest('updated_at')
                 ->take(6)
                 ->get();
 
-            if (Schema::hasTable('inspection_requests')) {
-                $tenantIds = InspectionRequest::query()
-                    ->forLandlord($this->currentUserId())
-                    ->whereHas('tenant', fn ($tenantQuery) => $tenantQuery->where('name', 'like', '%'.$query.'%'))
-                    ->pluck('tenant_id')
-                    ->unique()
-                    ->values();
+            if (Schema::hasTable('inspection_requests') || Schema::hasTable('occupancies')) {
+                $tenantQuery = User::role('tenant')
+                    ->where(function ($tenantQuery) use ($like) {
+                        $tenantQuery
+                            ->where('name', 'like', $like)
+                            ->orWhere('email', 'like', $like);
+                    })
+                    ->where(function ($scopedQuery) {
+                        $scopedQuery
+                            ->when(Schema::hasTable('inspection_requests'), function ($query) {
+                                $query->whereHas('inspectionRequests', fn ($inspectionQuery) => $inspectionQuery->forLandlord($this->currentUserId()));
+                            })
+                            ->when(Schema::hasTable('occupancies'), function ($query) {
+                                $query->orWhereHas('occupancies', fn ($occupancyQuery) => $occupancyQuery->whereHas('property', fn ($propertyQuery) => $propertyQuery->where('landlord_id', $this->currentUserId())));
+                            });
+                    })
+                    ->orderByRaw('CASE WHEN LOWER(name) = ? THEN 0 WHEN LOWER(email) = ? THEN 1 ELSE 2 END', [
+                        $normalized,
+                        $normalized,
+                    ])
+                    ->latest('created_at')
+                    ->take(6);
 
-                $results['tenants'] = User::query()
-                    ->whereIn('id', $tenantIds)
-                    ->take(6)
-                    ->get();
+                $results['tenants'] = $tenantQuery->get();
             }
 
             if (Schema::hasTable('payment_transactions')) {
                 $results['payments'] = PaymentTransaction::query()
                     ->whereHas('property', fn ($query) => $query->where('landlord_id', $this->currentUserId()))
-                    ->where('reference', 'like', '%'.$query.'%')
+                    ->where('reference', 'like', $like)
                     ->where('status', 'paid')
+                    ->whereIn('transaction_type', $this->landlordVisibleTransactionTypes())
+                    ->orderByRaw('CASE WHEN reference = ? THEN 0 ELSE 1 END', [$query])
                     ->latest('created_at')
                     ->take(6)
                     ->get();
@@ -67,5 +87,15 @@ class Search extends Component
             'query' => $query,
             'results' => $results,
         ])->layout('layouts.dashboard-shell', $this->landlordShell('Quick Search'));
+    }
+
+    protected function landlordVisibleTransactionTypes(): array
+    {
+        return [
+            'rent_payment',
+            'purchase_payment',
+            'house_purchase_payment',
+            'land_purchase_payment',
+        ];
     }
 }

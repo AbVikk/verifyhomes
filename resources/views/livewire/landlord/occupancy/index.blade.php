@@ -8,6 +8,19 @@
             </div>
         </x-admin.panel>
 
+        @if ($tenantProfile)
+            <x-admin.panel>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Filtered tenant</p>
+                        <p class="text-lg font-semibold text-slate-900">{{ $tenantProfile->name }}</p>
+                        <p class="text-sm text-slate-500">{{ $tenantProfile->email }}</p>
+                    </div>
+                    <a href="{{ route('landlord.occupancy.index') }}" class="admin-button admin-button-secondary">Clear filter</a>
+                </div>
+            </x-admin.panel>
+        @endif
+
         @if (! $occupanciesAvailable)
             <x-admin.empty-state
                 title="Occupancy tracking is not available yet."
