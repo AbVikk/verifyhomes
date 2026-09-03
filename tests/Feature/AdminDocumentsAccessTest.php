@@ -243,6 +243,42 @@ class AdminDocumentsAccessTest extends TestCase
         $response->assertDontSee('other-ownership.pdf');
     }
 
+    public function test_document_queue_keeps_pending_documents_actionable_without_an_approve_action_for_approved_documents(): void
+    {
+        $admin = $this->createReviewer('admin');
+        $landlordProfile = $this->createLandlordProfile();
+        $property = $this->createProperty();
+
+        $pendingDocument = LandlordDocument::create([
+            'landlord_profile_id' => $landlordProfile->id,
+            'document_type' => 'utility_bill',
+            'original_name' => 'pending-utility.pdf',
+            'file_path' => "landlord-documents/{$landlordProfile->id}/pending-utility.pdf",
+            'mime_type' => 'application/pdf',
+            'file_size' => 20,
+            'review_status' => 'pending',
+        ]);
+
+        $approvedDocument = PropertyDocument::create([
+            'property_id' => $property->id,
+            'document_type' => 'ownership_proof',
+            'original_name' => 'approved-ownership.pdf',
+            'file_path' => "property-documents/{$property->id}/approved-ownership.pdf",
+            'mime_type' => 'application/pdf',
+            'file_size' => 20,
+            'review_status' => 'approved',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.documents.index'));
+
+        $response->assertOk();
+        $response->assertSee('Pending items appear first.');
+        $response->assertSee("updateDocumentStatus('landlord', {$pendingDocument->id}, 'approved')", false);
+        $response->assertSee("updateDocumentStatus('landlord', {$pendingDocument->id}, 'rejected')", false);
+        $response->assertDontSee("updateDocumentStatus('property', {$approvedDocument->id}, 'approved')", false);
+        $response->assertSee("updateDocumentStatus('property', {$approvedDocument->id}, 'pending')", false);
+    }
+
     public function test_admin_can_approve_a_landlord_document_from_the_admin_documents_queue(): void
     {
         $admin = $this->createReviewer('admin');
@@ -444,7 +480,7 @@ class AdminDocumentsAccessTest extends TestCase
         $response->assertSee('render-check.pdf');
         $response->assertSee('Approve');
         $response->assertSee('Reject');
-        $response->assertSee('Return to Pending');
+        $response->assertDontSee('Return to Pending');
     }
 
     public function test_staff_can_perform_document_review_action(): void

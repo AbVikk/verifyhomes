@@ -10,7 +10,7 @@
             <div class="space-y-2">
                 <p class="admin-eyebrow">My stays</p>
                 <h2 class="admin-panel-title">Your active stays and next steps</h2>
-                <p class="admin-panel-copy">Track rent timing, move-out requests, and any issues tied to your current stays.</p>
+                <p class="admin-panel-copy">Track your current stay, any secured upcoming stay, and past rental history.</p>
             </div>
         </x-admin.panel>
 
@@ -102,13 +102,25 @@
                         $dueAt = $occupancy->computedNextPaymentDueAt();
                         $daysRemaining = $occupancy->daysUntilNextPayment();
                         $overdueDays = $occupancy->overdueDays();
+                        $sectionTitle = in_array($occupancy->status, ['active', 'move_out_pending'], true)
+                            ? 'Current Stay'
+                            : ($occupancy->status === 'upcoming' ? 'Upcoming Stay' : 'Past Stays');
+                        $previousSectionTitle = $loop->index > 0
+                            ? (in_array($occupancies[$loop->index - 1]->status, ['active', 'move_out_pending'], true)
+                                ? 'Current Stay'
+                                : ($occupancies[$loop->index - 1]->status === 'upcoming' ? 'Upcoming Stay' : 'Past Stays'))
+                            : null;
                         $statusTone = $occupancy->status === 'moved_out'
                             ? 'neutral'
-                            : ($occupancy->status === 'move_out_pending' ? 'warning' : 'success');
+                            : ($occupancy->status === 'upcoming' ? 'info' : ($occupancy->status === 'move_out_pending' ? 'warning' : 'success'));
                         $paymentTone = $overdueDays && $overdueDays > 0
                             ? 'danger'
                             : (($daysRemaining !== null && $daysRemaining <= 30) ? 'warning' : 'info');
                     @endphp
+
+                    @if ($sectionTitle !== $previousSectionTitle)
+                        <div class="pt-2"><p class="admin-eyebrow">{{ $sectionTitle }}</p></div>
+                    @endif
 
                     <x-admin.panel>
                         <div class="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
@@ -122,7 +134,7 @@
                                         @endif
                                     </div>
                                     <div class="min-w-0 space-y-2">
-                                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Stay summary</p>
+                                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ $occupancy->status === 'upcoming' ? 'Upcoming stay' : 'Stay summary' }}</p>
                                         <h3 class="text-lg font-semibold text-slate-950">{{ $property?->title ?? 'Property' }}</h3>
                                         <p class="text-sm text-slate-600">
                                             {{ $property?->listingIntentLabel() ?? 'Rental' }} - {{ $property?->city ?? 'Location' }}
@@ -144,6 +156,9 @@
                                                 <x-status-chip tone="info" class="mt-2">Lease coordination</x-status-chip>
                                                 <p class="mt-1 text-sm text-slate-600">Lease activity is tracked here once the workflow is confirmed.</p>
                                             @endif
+                                        @elseif ($occupancy->status === 'upcoming')
+                                            <x-status-chip tone="info" class="mt-2">Upcoming</x-status-chip>
+                                            <p class="mt-1 text-sm text-slate-600">Your next rental is secured and will become active after your current stay ends.</p>
                                         @else
                                             <x-status-chip tone="{{ $paymentTone }}" class="mt-2">{{ $occupancy->paymentStatusLabel() }}</x-status-chip>
                                             <p class="mt-1 text-sm text-slate-600">
@@ -167,7 +182,7 @@
                             <div class="space-y-4">
                                 <div>
                                     <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Next actions</p>
-                                    <p class="mt-2 text-sm text-slate-600">Request a move-out or report an issue for admin review and support.</p>
+                                    <p class="mt-2 text-sm text-slate-600">{{ $occupancy->status === 'upcoming' ? 'This stay is reserved and does not need active-stay actions yet.' : 'Request a move-out or report an issue for admin review and support.' }}</p>
                                 </div>
 
                                 @if ($latestMoveOutRequest && $latestMoveOutRequest->status === 'pending')
@@ -180,6 +195,7 @@
                                     </div>
                                 @endif
 
+                                @if ($occupancy->status !== 'upcoming')
                                 <div class="space-y-3">
                                     <form wire:submit.prevent="submitMoveOutRequest({{ $occupancy->id }})" class="space-y-3">
                                         <label class="admin-label" for="move-out-notes-{{ $occupancy->id }}">Move-out request reason (optional)</label>
@@ -236,6 +252,7 @@
                                         </button>
                                     </form>
                                 </div>
+                                @endif
                             </div>
                         </div>
                     </x-admin.panel>

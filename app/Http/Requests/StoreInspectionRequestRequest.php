@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Models\Property;
+use App\Support\InspectionRequestOptions;
+use App\Support\RentalEligibility;
 use App\Support\TermsGateService;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -34,13 +36,24 @@ class StoreInspectionRequestRequest extends FormRequest
                 return;
             }
 
-            $hasOpenRequest = $property->inspectionRequests()
+            $latestRequest = $property->inspectionRequests()
                 ->where('tenant_id', $this->user()->id)
-                ->open()
-                ->exists();
+                ->latest('created_at')
+                ->first();
 
-            if ($hasOpenRequest) {
-                $validator->errors()->add('property', 'You already have an open inspection request for this property.');
+            if ($latestRequest && ! in_array($latestRequest->status, [
+                InspectionRequestOptions::STATUS_CANCELLED,
+                InspectionRequestOptions::STATUS_REJECTED,
+            ], true)) {
+                $validator->errors()->add('property', 'You already have an inspection journey for this property. Open it to continue.');
+            }
+
+            if ($property->listing_intent === 'for_rent') {
+                $eligibility = app(RentalEligibility::class)->forTenant($this->user());
+
+                if (! $eligibility['allowed']) {
+                    $validator->errors()->add('property', $eligibility['reason']);
+                }
             }
 
             if (! app(TermsGateService::class)->isCompleted('inspection-request:property:'.$property->getKey())) {

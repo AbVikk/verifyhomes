@@ -24,10 +24,18 @@ class Index extends Component
     #[Url(except: 'all')]
     public string $statusFilter = 'all';
 
+    #[Url(except: 'all')]
+    public string $categoryFilter = 'all';
+
     #[Url(except: '')]
     public string $reference = '';
 
     public function updatingStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingCategoryFilter(): void
     {
         $this->resetPage();
     }
@@ -44,6 +52,8 @@ class Index extends Component
         $transactions = $paymentsAvailable
             ? (clone $baseQuery)
                 ->when($this->statusFilter !== 'all', fn ($query) => $query->where('status', $this->statusFilter))
+                ->when($this->categoryFilter === 'inspection', fn ($query) => $query->where('transaction_type', 'inspection_booking_fee'))
+                ->when($this->categoryFilter === 'property', fn ($query) => $query->whereIn('transaction_type', $this->propertyPaymentTypes()))
                 ->latest('created_at')
                 ->paginate(10)
             : $this->emptyPaginator();
@@ -69,6 +79,8 @@ class Index extends Component
         return view('livewire.tenant.payments.index', [
             'paymentsAvailable' => $paymentsAvailable,
             'transactions' => $transactions,
+            'propertyTransactions' => $transactions->getCollection()->filter(fn (PaymentTransaction $transaction) => $this->isPropertyPayment($transaction)),
+            'inspectionTransactions' => $transactions->getCollection()->filter(fn (PaymentTransaction $transaction) => $this->isInspectionBookingPayment($transaction)),
             'highlightedTransaction' => $highlightedTransaction,
             'summary' => $summary,
         ])->layout('layouts.dashboard-shell', $this->tenantShell('Payments'));
@@ -124,13 +136,36 @@ class Index extends Component
             'house_purchase_payment' => 'House purchase payment for this property listing.',
             'land_purchase_payment' => 'Land purchase payment'.$unitSuffix.' for this property listing.',
             'purchase_payment' => 'Purchase payment for this property listing.',
-            'inspection_booking_fee' => 'Inspection booking payment for a scheduled-property workflow.',
+            'inspection_booking_fee' => 'Inspection fee only - separate from rent or purchase.',
             default => $transaction->metadata['checkout_context'] ?? 'General payment record',
+        };
+    }
+
+    public function transactionTypeLabel(PaymentTransaction $transaction): string
+    {
+        return match ($transaction->transaction_type) {
+            'inspection_booking_fee' => 'Inspection Booking Fee',
+            'rent_payment' => 'Rent Payment',
+            'land_purchase_payment' => 'Land Purchase',
+            'house_purchase_payment', 'purchase_payment' => 'House Purchase',
+            default => str($transaction->transaction_type)->headline()->toString(),
+        };
+    }
+
+    public function statusLabel(PaymentTransaction $transaction): string
+    {
+        return match ($transaction->status) {
+            'pending' => 'Awaiting verification',
+            default => str($transaction->status)->headline()->toString(),
         };
     }
 
     public function platformFeeSummary(PaymentTransaction $transaction): string
     {
+        if ($this->isInspectionBookingPayment($transaction)) {
+            return 'Inspection fee only - separate from rent or purchase.';
+        }
+
         $percentage = (float) ($transaction->platform_fee_percentage ?? 0);
 
         if ($percentage <= 0) {
@@ -155,6 +190,35 @@ class Index extends Component
     {
         return in_array($transaction->status, ['initiated', 'pending'], true)
             && filled(data_get($transaction->metadata, 'checkout_url'));
+    }
+
+    public function isInspectionBookingPayment(PaymentTransaction $transaction): bool
+    {
+        return $transaction->transaction_type === 'inspection_booking_fee';
+    }
+
+    public function isPropertyPayment(PaymentTransaction $transaction): bool
+    {
+        return in_array($transaction->transaction_type, $this->propertyPaymentTypes(), true);
+    }
+
+    public function relatedActionLabel(PaymentTransaction $transaction): string
+    {
+        if ($this->isInspectionBookingPayment($transaction)) {
+            return 'View inspection';
+        }
+
+        if (in_array($transaction->transaction_type, ['house_purchase_payment', 'land_purchase_payment', 'purchase_payment'], true)
+            && data_get($transaction->metadata, 'purchase_record_id')) {
+            return 'View receipt';
+        }
+
+        return $transaction->status === 'paid' && $transaction->transaction_type === 'rent_payment' ? 'View My Stay' : 'View property';
+    }
+
+    protected function propertyPaymentTypes(): array
+    {
+        return ['rent_payment', 'house_purchase_payment', 'land_purchase_payment', 'purchase_payment'];
     }
 
     protected function paymentsAvailable(): bool

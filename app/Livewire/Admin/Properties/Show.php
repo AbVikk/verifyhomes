@@ -162,7 +162,12 @@ class Show extends Component
         $this->property = $this->property->fresh();
         $this->reviewNotes = null;
 
-        session()->flash('status', 'Property review status updated successfully.');
+        session()->flash(
+            'status',
+            $status === 'approved'
+                ? 'Property approved successfully.'
+                : 'Property review status updated successfully.',
+        );
     }
 
     public function updateOccupancy(): void

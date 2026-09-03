@@ -170,6 +170,15 @@
                                 </a>
                             </div>
                         @endif
+
+                        @if (filled($property->property_terms))
+                            <div class="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                                <p class="admin-eyebrow">Before you continue</p>
+                                <h3 class="mt-1 text-lg font-semibold text-slate-950">Property Terms &amp; Conditions</h3>
+                                <p class="mt-2 whitespace-pre-line text-sm leading-6 text-slate-700">{{ $property->property_terms }}</p>
+                                <p class="mt-3 text-xs text-slate-600">These property-specific conditions come from the landlord and are separate from VerifyHomes inspection and payment terms.</p>
+                            </div>
+                        @endif
                     </div>
                 </x-admin.panel>
             </div>
@@ -366,14 +375,20 @@
                                 title="Inspection requests are not available yet."
                                 copy="This section will appear when inspection requests are available."
                             />
-                        @elseif ($hasOpenInspectionRequest && $latestInspectionRequest)
+                        @elseif ($this->hasExistingInspectionJourney())
                             <div class="space-y-3">
                                 <div class="admin-alert admin-alert-warning">
-                                    You already have an active request for this property.
+                                    <p class="font-semibold">{{ $this->existingJourneyTitle() }}</p>
+                                    <p class="mt-1">Your existing journey for this property is still active. Continue from the current step instead of starting another request.</p>
                                 </div>
-                                <a href="{{ route('tenant.inspection-requests.show', ['inspectionRequestId' => $latestInspectionRequest->getKey()]) }}" class="admin-button admin-button-primary w-full text-center">
-                                    View request
+                                <a href="{{ $this->existingJourneyUrl() }}" @if ($this->canContinueCheckout($latestRentPaymentTransaction) || $this->canContinueCheckout($latestPurchasePaymentTransaction)) target="_blank" rel="noopener noreferrer" @endif class="admin-button admin-button-primary w-full text-center">
+                                    {{ $this->existingJourneyActionLabel() }}
                                 </a>
+                            </div>
+                        @elseif (! $this->canRequestInspection())
+                            <div class="space-y-3">
+                                <div class="admin-alert admin-alert-warning">{{ $this->rentalEligibilityMessage() }}</div>
+                                <a href="{{ route('tenant.occupancy.index') }}" class="admin-button admin-button-secondary w-full text-center">View My Stay</a>
                             </div>
                         @else
                             <form id="inspection-request" method="POST" action="{{ route('inspection-requests.store', $property) }}" class="space-y-4" data-processing-form>
@@ -390,6 +405,7 @@
                                     data-terms-gate-seconds-remaining="{{ $this->inspectionTermsSecondsRemaining() }}"
                                     data-terms-gate-ready="{{ $this->inspectionTermsReady() ? 'true' : 'false' }}"
                                     data-terms-gate-accepted="{{ old('accepted_inspection_terms') ? 'true' : 'false' }}"
+                                    data-terms-gate-guidance
                                 >
                                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
@@ -438,6 +454,8 @@
                                     <textarea id="message" name="message" rows="4" class="admin-control admin-control-textarea" placeholder="Share anything helpful about your preferred visit window.">{{ old('message') }}</textarea>
                                     @error('message') <p class="admin-error">{{ $message }}</p> @enderror
                                 </div>
+
+                                <p data-terms-gate-guidance-message class="hidden text-sm text-amber-800" role="status" aria-live="polite"></p>
 
                                 <button type="submit" class="admin-button admin-button-primary w-full" data-processing-button data-terms-gate-submit-button>
                                     <span data-button-idle>Send request</span>

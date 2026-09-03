@@ -41,6 +41,8 @@ trait InteractsWithPropertyForm
 
     public ?string $description = null;
 
+    public ?string $propertyTerms = null;
+
     public ?int $bedrooms = null;
 
     public ?int $bathrooms = null;
@@ -121,6 +123,7 @@ trait InteractsWithPropertyForm
             'serviceCharge' => ['nullable', 'numeric', 'min:0'],
             'totalUnits' => ['required', 'integer', 'min:1', 'max:10000'],
             'description' => ['nullable', 'string'],
+            'propertyTerms' => ['nullable', 'string', 'max:5000'],
             'bedrooms' => ['nullable', 'integer', 'min:0'],
             'bathrooms' => ['nullable', 'integer', 'min:0'],
             'toilets' => ['nullable', 'integer', 'min:0'],
@@ -170,6 +173,7 @@ trait InteractsWithPropertyForm
         $this->serviceCharge = $property->service_charge !== null ? (string) $property->service_charge : null;
         $this->totalUnits = (string) ($property->total_units ?: 1);
         $this->description = $property->description;
+        $this->propertyTerms = $property->property_terms;
         $this->bedrooms = $property->bedrooms;
         $this->bathrooms = $property->bathrooms;
         $this->toilets = $property->toilets;
@@ -344,6 +348,7 @@ trait InteractsWithPropertyForm
             'total_units' => (int) $validated['totalUnits'],
             'occupied_units' => min((int) ($property->occupied_units ?? 0), (int) $validated['totalUnits']),
             'description' => $this->normalizeNullableText($validated['description']),
+            'property_terms' => $this->normalizeNullableText($validated['propertyTerms']),
             'bedrooms' => $this->bedroomValueForPayload($validated['bedrooms']),
             'bathrooms' => $this->bathroomValueForPayload($validated['bathrooms']),
             'toilets' => $this->toiletValueForPayload($validated['toilets']),

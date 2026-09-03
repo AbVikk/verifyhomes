@@ -4,10 +4,14 @@ namespace Tests\Feature;
 
 use App\Livewire\Admin\InspectionRequests\Index as AdminInspectionRequestIndex;
 use App\Livewire\Admin\InspectionRequests\Show as AdminInspectionRequestShow;
+use App\Livewire\Admin\Payments\Index as AdminPaymentIndex;
 use App\Livewire\Tenant\InspectionRequests\Index as TenantInspectionRequestIndex;
+use App\Livewire\Tenant\InspectionRequests\Show as TenantInspectionRequestShow;
 use App\Models\InspectionRequest;
 use App\Models\LandlordDocument;
 use App\Models\LandlordProfile;
+use App\Models\Occupancy;
+use App\Models\PaymentTransaction;
 use App\Models\Property;
 use App\Models\TenantProfile;
 use App\Models\User;
@@ -201,22 +205,229 @@ class PublicPropertyAndInspectionTest extends TestCase
         $tenantResponse = $this->actingAs($tenant)->get(route('tenant.inspection-requests.show', $inspectionRequest));
 
         $tenantResponse->assertOk();
-        $tenantResponse->assertSee('Waiting for scheduling');
-        $tenantResponse->assertSee('Waiting for scheduling');
+        $tenantResponse->assertSee('Waiting for inspection schedule');
+        $tenantResponse->assertSee('Waiting for inspection schedule');
         $tenantResponse->assertSee('Not started');
-        $tenantResponse->assertSee('We are scheduling your visit.');
-        $tenantResponse->assertSee('View terms');
+        $tenantResponse->assertSee("VerifyHomes is arranging a suitable inspection date. We'll notify you when a schedule is ready for your review.");
+        $tenantResponse->assertDontSee('Pay booking fee');
+        $tenantResponse->assertDontSee('View terms');
         $tenantResponse->assertSee('admin-button admin-button-primary', false);
 
         $adminResponse = $this->actingAs($admin)->get(route('admin.inspection-requests.show', $inspectionRequest));
 
         $adminResponse->assertOk();
-        $adminResponse->assertSee('Inspection control center');
-        $adminResponse->assertSee('Manage the inspection request here.');
-        $adminResponse->assertSee('Payment readiness');
-        $adminResponse->assertSee('Scheduling responsibility');
-        $adminResponse->assertSee('Landlord coordination');
-        $adminResponse->assertSee('Outcome status');
+        $adminResponse->assertSee('Current inspection status');
+        $adminResponse->assertSee('New inspection request');
+        $adminResponse->assertSee('Send proposed schedule');
+        $adminResponse->assertSee('Proposed date and time');
+        $adminResponse->assertDontSee('Reschedule inspection');
+        $adminResponse->assertDontSee('Complete inspection');
+        $adminResponse->assertDontSee('Inspection outcome');
+    }
+
+    public function test_admin_inspection_controls_follow_schedule_and_booking_states(): void
+    {
+        $admin = $this->createReviewer('admin');
+        $tenant = $this->createTenant('state-driven-inspection@example.com');
+        $inspectionRequest = $this->createInspectionRequest($tenant);
+
+        $inspectionRequest->update([
+            'status' => 'scheduled',
+            'scheduled_at' => now()->addDays(2),
+            'schedule_response' => 'pending',
+        ]);
+
+        $proposed = $this->actingAs($admin)->get(route('admin.inspection-requests.show', $inspectionRequest));
+        $proposed->assertOk()
+            ->assertSee('Waiting for tenant response')
+            ->assertSee('Change proposed schedule')
+            ->assertDontSee('Proposed date and time')
+            ->assertDontSee('Reschedule inspection')
+            ->assertDontSee('Complete inspection');
+
+        $inspectionRequest->update([
+            'status' => 'requested',
+            'schedule_response' => 'reschedule_requested',
+            'schedule_response_notes' => 'Saturday afternoon please.',
+            'schedule_responded_at' => now(),
+        ]);
+
+        $requestedAnotherDate = $this->actingAs($admin)->get(route('admin.inspection-requests.show', $inspectionRequest));
+        $requestedAnotherDate->assertOk()
+            ->assertSee('Tenant requested another date')
+            ->assertSee('Saturday afternoon please.')
+            ->assertSee('Send new schedule')
+            ->assertSee('Proposed date and time')
+            ->assertDontSee('Reschedule inspection');
+
+        $inspectionRequest->update([
+            'status' => 'scheduled',
+            'schedule_response' => 'accepted',
+            'schedule_responded_at' => now(),
+        ]);
+
+        $acceptedUnpaid = $this->actingAs($admin)->get(route('admin.inspection-requests.show', $inspectionRequest));
+        $acceptedUnpaid->assertOk()
+            ->assertSee('Schedule accepted')
+            ->assertSee('Waiting for booking fee')
+            ->assertDontSee('Proposed date and time')
+            ->assertDontSee('Reschedule inspection')
+            ->assertDontSee('Complete inspection');
+
+        PaymentTransaction::create([
+            'reference' => 'state-driven-booking-fee',
+            'payer_id' => $tenant->id,
+            'property_id' => $inspectionRequest->property_id,
+            'inspection_request_id' => $inspectionRequest->id,
+            'transaction_type' => 'inspection_booking_fee',
+            'provider' => 'stub',
+            'currency' => 'NGN',
+            'status' => 'paid',
+            'gross_amount' => 5000,
+            'platform_fee_percentage' => 0,
+            'platform_fee_amount' => 5000,
+            'net_amount' => 0,
+            'paid_at' => now(),
+        ]);
+
+        $paid = $this->actingAs($admin)->get(route('admin.inspection-requests.show', $inspectionRequest));
+        $paid->assertOk()
+            ->assertSee('Booking fee paid')
+            ->assertSee('Reschedule inspection')
+            ->assertSee('Complete inspection')
+            ->assertDontSee('Proposed date and time');
+
+        $this->actingAs($admin);
+        Livewire::test(AdminInspectionRequestShow::class, ['inspectionRequest' => $inspectionRequest])
+            ->call('rescheduleInspection')
+            ->assertSee('Send updated schedule')
+            ->assertSee('Proposed date and time');
+    }
+
+    public function test_tenant_can_accept_a_proposed_schedule_and_request_another_date(): void
+    {
+        $admin = $this->createReviewer('admin');
+        $tenant = $this->createTenant('schedule-response@example.com');
+        $inspectionRequest = $this->createInspectionRequest($tenant);
+        $inspectionRequest->update([
+            'status' => 'scheduled',
+            'scheduled_at' => now()->addDays(2),
+            'schedule_response' => 'pending',
+        ]);
+
+        $this->actingAs($tenant);
+
+        Livewire::test(TenantInspectionRequestShow::class, ['inspectionRequest' => $inspectionRequest])
+            ->assertSee('Inspection date proposed')
+            ->call('acceptSchedule')
+            ->assertSee('Inspection schedule accepted');
+
+        $inspectionRequest->refresh();
+        $this->assertSame('accepted', $inspectionRequest->schedule_response);
+
+        $inspectionRequest->update(['schedule_response' => 'pending']);
+
+        Livewire::test(TenantInspectionRequestShow::class, ['inspectionRequest' => $inspectionRequest])
+            ->set('scheduleResponseNotes', 'Saturday morning would work better.')
+            ->call('requestAnotherDate');
+
+        $inspectionRequest->refresh();
+        $this->assertSame('requested', $inspectionRequest->status);
+        $this->assertSame('reschedule_requested', $inspectionRequest->schedule_response);
+        $this->assertSame('Saturday morning would work better.', $inspectionRequest->schedule_response_notes);
+        $this->assertDatabaseHas('inspection_request_status_histories', [
+            'inspection_request_id' => $inspectionRequest->id,
+            'to_status' => 'requested',
+            'changed_by' => $tenant->id,
+        ]);
+    }
+
+    public function test_property_specific_terms_are_visible_without_replacing_platform_terms(): void
+    {
+        $property = $this->createPublicProperty();
+        $property->update(['property_terms' => 'No smoking indoors. Caution deposit applies before move-in.']);
+
+        $guestResponse = $this->get(route('properties.show', $property));
+        $guestResponse->assertOk()
+            ->assertSee('Property Terms &amp; Conditions', false)
+            ->assertSee('No smoking indoors. Caution deposit applies before move-in.')
+            ->assertSee('Inspection terms');
+    }
+
+    public function test_booking_fee_checkout_requires_schedule_acceptance_and_paid_fee_survives_rescheduling(): void
+    {
+        config()->set('payments.default_provider', 'stub');
+
+        $admin = $this->createReviewer('admin');
+        $tenant = $this->createTenant('booking-acceptance@example.com');
+        $inspectionRequest = $this->createInspectionRequest($tenant);
+        $inspectionRequest->update([
+            'status' => 'scheduled',
+            'scheduled_at' => now()->addDays(2),
+            'schedule_response' => 'pending',
+        ]);
+
+        $gate = 'inspection-payment:request:'.$inspectionRequest->id;
+        $blocked = $this->withSession($this->completedTermsGateSession($gate))
+            ->actingAs($tenant)
+            ->post(route('tenant.inspection-requests.payments.store', $inspectionRequest), [
+                'accepted_inspection_terms' => '1',
+            ]);
+        $blocked->assertRedirect(route('tenant.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->id]));
+        $blocked->assertSessionHasErrors('inspection_request');
+        $this->assertDatabaseCount('payment_transactions', 0);
+
+        $inspectionRequest->update(['schedule_response' => 'accepted']);
+        $this->withSession($this->completedTermsGateSession($gate))
+            ->actingAs($tenant)
+            ->post(route('tenant.inspection-requests.payments.store', $inspectionRequest), [
+                'accepted_inspection_terms' => '1',
+            ])
+            ->assertRedirect();
+
+        $transaction = PaymentTransaction::query()->sole();
+        $transaction->update(['status' => 'paid', 'paid_at' => now()]);
+
+        $this->actingAs($admin);
+        Livewire::test(AdminInspectionRequestShow::class, ['inspectionRequest' => $inspectionRequest])
+            ->set('scheduledAt', now()->addDays(4)->format('Y-m-d\TH:i'))
+            ->call('changeStatus', 'scheduled');
+
+        $inspectionRequest->refresh();
+        $this->assertSame('pending', $inspectionRequest->schedule_response);
+        $this->assertSame('paid', $transaction->fresh()->status);
+        $this->assertDatabaseCount('payment_transactions', 1);
+    }
+
+    public function test_admin_can_record_internal_landlord_settlement_for_paid_property_money_only(): void
+    {
+        $admin = $this->createReviewer('admin');
+        $property = $this->createPublicProperty();
+        $transaction = PaymentTransaction::create([
+            'reference' => 'rent-settlement-test',
+            'payer_id' => $this->createTenant('settlement-tenant@example.com')->id,
+            'property_id' => $property->id,
+            'transaction_type' => 'rent_payment',
+            'provider' => 'stub',
+            'currency' => 'NGN',
+            'status' => 'paid',
+            'gross_amount' => 100000,
+            'platform_fee_percentage' => 20,
+            'platform_fee_amount' => 20000,
+            'net_amount' => 80000,
+            'paid_at' => now(),
+        ]);
+
+        $this->actingAs($admin);
+        Livewire::test(AdminPaymentIndex::class)
+            ->call('markLandlordSettled', $transaction->id)
+            ->assertSee('does not initiate or confirm an external bank transfer');
+
+        $this->assertDatabaseHas('payment_transactions', [
+            'id' => $transaction->id,
+            'landlord_settlement_status' => 'recorded_paid',
+            'landlord_settled_by' => $admin->id,
+        ]);
     }
 
     public function test_admin_inspection_request_index_renders_unavailable_state_when_table_is_missing(): void
@@ -1033,6 +1244,116 @@ class PublicPropertyAndInspectionTest extends TestCase
         $response->assertRedirect(route('properties.show', $property));
         $response->assertSessionHasErrors('accepted_inspection_terms');
         $this->assertDatabaseCount('inspection_requests', 0);
+    }
+
+    public function test_completed_inspection_journey_hides_the_new_request_form_and_blocks_duplicates(): void
+    {
+        $tenant = $this->createTenant();
+        $property = $this->createPublicProperty();
+
+        InspectionRequest::create([
+            'property_id' => $property->id,
+            'tenant_id' => $tenant->id,
+            'status' => 'completed',
+            'outcome_type' => 'inspected',
+        ]);
+
+        $this->actingAs($tenant)->get(route('properties.show', $property))
+            ->assertOk()
+            ->assertSee('Inspection completed')
+            ->assertSee('View inspection')
+            ->assertDontSee('id="inspection-request"', false);
+
+        $response = $this->actingAs($tenant)
+            ->withSession($this->completedTermsGateSession('inspection-request:property:'.$property->id))
+            ->from(route('properties.show', $property))
+            ->post(route('inspection-requests.store', $property), [
+                'accepted_inspection_terms' => '1',
+            ]);
+
+        $response->assertSessionHasErrors('property');
+        $this->assertDatabaseCount('inspection_requests', 1);
+    }
+
+    public function test_cancelled_inspection_request_allows_a_fresh_request(): void
+    {
+        $tenant = $this->createTenant();
+        $property = $this->createPublicProperty();
+
+        InspectionRequest::create([
+            'property_id' => $property->id,
+            'tenant_id' => $tenant->id,
+            'status' => 'cancelled',
+        ]);
+
+        $this->actingAs($tenant)->get(route('properties.show', $property))
+            ->assertOk()
+            ->assertSee('id="inspection-request"', false);
+    }
+
+    public function test_active_rental_outside_transition_window_blocks_a_different_rental_inspection_request(): void
+    {
+        $tenant = $this->createTenant();
+        $currentProperty = $this->createPublicProperty();
+        $candidateProperty = $this->createPublicProperty();
+        Occupancy::create([
+            'property_id' => $currentProperty->id,
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+            'units' => 1,
+            'payment_cycle_months' => 12,
+            'started_at' => now(),
+            'last_payment_at' => now(),
+            'next_payment_due_at' => now()->addDays(61),
+        ]);
+
+        $response = $this->actingAs($tenant)
+            ->withSession($this->completedTermsGateSession('inspection-request:property:'.$candidateProperty->id))
+            ->from(route('properties.show', $candidateProperty))
+            ->post(route('inspection-requests.store', $candidateProperty), ['accepted_inspection_terms' => '1']);
+
+        $response->assertSessionHasErrors('property');
+        $this->assertDatabaseCount('inspection_requests', 0);
+    }
+
+    public function test_transition_window_allows_a_different_rental_inspection_request_until_an_upcoming_stay_exists(): void
+    {
+        $tenant = $this->createTenant();
+        $currentProperty = $this->createPublicProperty();
+        $candidateProperty = $this->createPublicProperty();
+        Occupancy::create([
+            'property_id' => $currentProperty->id,
+            'tenant_id' => $tenant->id,
+            'status' => 'active',
+            'units' => 1,
+            'payment_cycle_months' => 12,
+            'started_at' => now(),
+            'last_payment_at' => now(),
+            'next_payment_due_at' => now()->addDays(60),
+        ]);
+
+        $this->actingAs($tenant)
+            ->withSession($this->completedTermsGateSession('inspection-request:property:'.$candidateProperty->id))
+            ->post(route('inspection-requests.store', $candidateProperty), ['accepted_inspection_terms' => '1'])
+            ->assertRedirect(route('properties.show', $candidateProperty));
+
+        $this->assertDatabaseHas('inspection_requests', ['tenant_id' => $tenant->id, 'property_id' => $candidateProperty->id]);
+
+        $anotherProperty = $this->createPublicProperty();
+        Occupancy::create([
+            'property_id' => $candidateProperty->id,
+            'tenant_id' => $tenant->id,
+            'status' => 'upcoming',
+            'units' => 1,
+            'payment_cycle_months' => 12,
+        ]);
+
+        $response = $this->actingAs($tenant)
+            ->withSession($this->completedTermsGateSession('inspection-request:property:'.$anotherProperty->id))
+            ->from(route('properties.show', $anotherProperty))
+            ->post(route('inspection-requests.store', $anotherProperty), ['accepted_inspection_terms' => '1']);
+
+        $response->assertSessionHasErrors('property');
     }
 
     protected function createReviewer(string $role): User

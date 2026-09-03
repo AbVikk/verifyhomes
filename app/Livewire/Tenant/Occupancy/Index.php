@@ -9,8 +9,8 @@ use App\Models\OccupancyComplaint;
 use App\Models\OccupancyMoveOutRequest;
 use App\Models\PropertyPurchase;
 use App\Models\User;
-use App\Models\UserNotification;
 use App\Support\Currency;
+use App\Support\WorkflowNotifier;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
@@ -44,6 +44,14 @@ class Index extends Component
                 ->latest('started_at')
                 ->get()
             : new Collection();
+
+        $occupancies = $occupancies
+            ->sortBy(fn (Occupancy $occupancy) => match ($occupancy->status) {
+                'active', 'move_out_pending' => 0,
+                'upcoming' => 1,
+                default => 2,
+            })
+            ->values();
 
         $purchases = $purchasesAvailable
             ? PropertyPurchase::query()
@@ -102,7 +110,7 @@ class Index extends Component
 
         $notes = trim($this->moveOutNotes[$occupancyId] ?? '');
 
-        OccupancyMoveOutRequest::create([
+        $moveOutRequest = OccupancyMoveOutRequest::create([
             'occupancy_id' => $occupancy->getKey(),
             'tenant_id' => $this->currentUserId(),
             'status' => 'pending',
@@ -116,7 +124,7 @@ class Index extends Component
 
         $this->moveOutNotes[$occupancyId] = '';
 
-        $this->notifyMoveOutRequest($occupancy);
+        $this->notifyMoveOutRequest($occupancy, $moveOutRequest);
 
         session()->flash('status', 'Move-out request submitted. An admin will review it next.');
     }
@@ -147,7 +155,7 @@ class Index extends Component
             return;
         }
 
-        OccupancyComplaint::create([
+        $complaint = OccupancyComplaint::create([
             'occupancy_id' => $occupancy->getKey(),
             'tenant_id' => $this->currentUserId(),
             'category' => trim($this->complaintCategory[$occupancyId] ?? ''),
@@ -158,58 +166,39 @@ class Index extends Component
         $this->complaintCategory[$occupancyId] = '';
         $this->complaintDescription[$occupancyId] = '';
 
-        $this->notifyComplaint($occupancy);
+        $this->notifyComplaint($occupancy, $complaint);
 
         session()->flash('status', 'Complaint logged. The admin team will review it soon.');
     }
 
-    protected function notifyMoveOutRequest(Occupancy $occupancy): void
+    protected function notifyMoveOutRequest(Occupancy $occupancy, OccupancyMoveOutRequest $moveOutRequest): void
     {
         if (! Schema::hasTable('user_notifications')) {
             return;
         }
 
-        UserNotification::create([
-            'user_id' => $this->currentUserId(),
-            'title' => 'Move-out request submitted',
-            'body' => $occupancy->property ? "Move-out request submitted for {$occupancy->property->title}." : 'Move-out request submitted.',
-            'category' => 'move_out_request',
-            'link' => route('tenant.occupancy.index'),
-        ]);
+        $notifier = app(WorkflowNotifier::class);
+        $tenant = $this->currentUser();
+        $eventKey = 'move-out-request:'.$moveOutRequest->getKey();
+        $notifier->notify($tenant, $eventKey, 'Move-out request submitted', $occupancy->property ? "Move-out request submitted for {$occupancy->property->title}." : 'Move-out request submitted.', route('tenant.occupancy.index'), 'move_out_request', 'View My Stay');
 
-        User::role(['admin', 'staff'])->get()->each(function (User $admin) use ($occupancy): void {
-            UserNotification::create([
-                'user_id' => $admin->getKey(),
-                'title' => 'Move-out request submitted',
-                'body' => $occupancy->property ? "Tenant move-out request for {$occupancy->property->title}." : 'Tenant move-out request submitted.',
-                'category' => 'move_out_request',
-                'link' => route('admin.occupancy.index'),
-            ]);
+        User::role(['admin', 'staff'])->get()->each(function (User $admin) use ($notifier, $occupancy, $eventKey): void {
+            $notifier->notify($admin, $eventKey, 'Move-out request submitted', $occupancy->property ? "Tenant move-out request for {$occupancy->property->title}." : 'Tenant move-out request submitted.', route('admin.occupancy.index'), 'move_out_request', 'Review move-out');
         });
     }
 
-    protected function notifyComplaint(Occupancy $occupancy): void
+    protected function notifyComplaint(Occupancy $occupancy, OccupancyComplaint $complaint): void
     {
         if (! Schema::hasTable('user_notifications')) {
             return;
         }
 
-        UserNotification::create([
-            'user_id' => $this->currentUserId(),
-            'title' => 'Complaint submitted',
-            'body' => $occupancy->property ? "Complaint logged for {$occupancy->property->title}." : 'Complaint logged.',
-            'category' => 'complaint',
-            'link' => route('tenant.occupancy.index'),
-        ]);
+        $notifier = app(WorkflowNotifier::class);
+        $eventKey = 'occupancy-complaint:'.$complaint->getKey();
+        $notifier->notify($this->currentUser(), $eventKey, 'Complaint submitted', $occupancy->property ? "Complaint logged for {$occupancy->property->title}." : 'Complaint logged.', route('tenant.occupancy.index'), 'complaint', 'View My Stay');
 
-        User::role(['admin', 'staff'])->get()->each(function (User $admin) use ($occupancy): void {
-            UserNotification::create([
-                'user_id' => $admin->getKey(),
-                'title' => 'New complaint logged',
-                'body' => $occupancy->property ? "Complaint logged for {$occupancy->property->title}." : 'Complaint logged by tenant.',
-                'category' => 'complaint',
-                'link' => route('admin.occupancy.index'),
-            ]);
+        User::role(['admin', 'staff'])->get()->each(function (User $admin) use ($notifier, $occupancy, $eventKey): void {
+            $notifier->notify($admin, $eventKey, 'New complaint logged', $occupancy->property ? "Complaint logged for {$occupancy->property->title}." : 'Complaint logged by tenant.', route('admin.occupancy.index'), 'complaint', 'Review complaint');
         });
     }
 }

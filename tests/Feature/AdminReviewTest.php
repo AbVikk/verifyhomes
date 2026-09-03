@@ -41,6 +41,75 @@ class AdminReviewTest extends TestCase
         $this->actingAs($staff)->get(route('admin.landlords.show', $landlordProfile))->assertOk();
     }
 
+    public function test_landlord_detail_only_renders_documents_for_that_landlord(): void
+    {
+        $admin = $this->createReviewer('admin');
+        $landlordProfile = $this->createLandlordProfile();
+        $otherLandlordProfile = $this->createLandlordProfile('other-landlord-documents@example.com');
+
+        LandlordDocument::create([
+            'landlord_profile_id' => $landlordProfile->id,
+            'document_type' => 'national_id',
+            'original_name' => 'this-landlord-id.pdf',
+            'file_path' => "landlord-documents/{$landlordProfile->id}/this-landlord-id.pdf",
+            'mime_type' => 'application/pdf',
+            'file_size' => 20,
+            'review_status' => 'pending',
+        ]);
+
+        LandlordDocument::create([
+            'landlord_profile_id' => $otherLandlordProfile->id,
+            'document_type' => 'national_id',
+            'original_name' => 'other-landlord-id.pdf',
+            'file_path' => "landlord-documents/{$otherLandlordProfile->id}/other-landlord-id.pdf",
+            'mime_type' => 'application/pdf',
+            'file_size' => 20,
+            'review_status' => 'pending',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.landlords.show', $landlordProfile))
+            ->assertOk()
+            ->assertSee('Verification documents')
+            ->assertSee('this-landlord-id.pdf')
+            ->assertDontSee('other-landlord-id.pdf');
+    }
+
+    public function test_property_detail_only_renders_documents_for_that_property(): void
+    {
+        $admin = $this->createReviewer('admin');
+        $property = $this->createProperty();
+        $otherProperty = $this->createProperty(email: 'other-property-documents@example.com');
+
+        PropertyDocument::create([
+            'property_id' => $property->id,
+            'document_type' => 'ownership_proof',
+            'original_name' => 'this-property-proof.pdf',
+            'file_path' => "property-documents/{$property->id}/this-property-proof.pdf",
+            'mime_type' => 'application/pdf',
+            'file_size' => 20,
+            'review_status' => 'pending',
+        ]);
+
+        PropertyDocument::create([
+            'property_id' => $otherProperty->id,
+            'document_type' => 'ownership_proof',
+            'original_name' => 'other-property-proof.pdf',
+            'file_path' => "property-documents/{$otherProperty->id}/other-property-proof.pdf",
+            'mime_type' => 'application/pdf',
+            'file_size' => 20,
+            'review_status' => 'pending',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.properties.show', $property))
+            ->assertOk()
+            ->assertSee('Property images')
+            ->assertSee('Supporting documents')
+            ->assertSee('this-property-proof.pdf')
+            ->assertDontSee('other-property-proof.pdf');
+    }
+
     public function test_admin_landlord_index_search_and_status_filter_can_be_combined(): void
     {
         $admin = $this->createReviewer('admin');
@@ -646,6 +715,22 @@ class AdminReviewTest extends TestCase
 
         $this->assertSame('approved', $property->status);
         $this->assertTrue($property->is_verified);
+        $this->assertFalse($property->is_published);
+    }
+
+    public function test_admin_property_detail_shows_publish_next_step_without_auto_publishing(): void
+    {
+        $admin = $this->createReviewer('admin');
+        $property = $this->createProperty(status: 'approved', isVerified: true, isPublished: false);
+
+        $response = $this->actingAs($admin)->get(route('admin.properties.show', $property));
+
+        $response->assertOk();
+        $response->assertSee('Property approved successfully.');
+        $response->assertSee('This property is approved but not yet visible to tenants.');
+        $response->assertSee('Publish property');
+
+        $property->refresh();
         $this->assertFalse($property->is_published);
     }
 

@@ -26,6 +26,11 @@ class PaymentTransaction extends Model
         'platform_fee_amount',
         'net_amount',
         'paid_at',
+        'landlord_settlement_status',
+        'landlord_settled_at',
+        'landlord_settled_by',
+        'landlord_settlement_reference',
+        'landlord_settlement_notes',
         'metadata',
     ];
 
@@ -37,6 +42,7 @@ class PaymentTransaction extends Model
             'platform_fee_amount' => 'decimal:2',
             'net_amount' => 'decimal:2',
             'paid_at' => 'datetime',
+            'landlord_settled_at' => 'datetime',
             'metadata' => 'array',
         ];
     }

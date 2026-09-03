@@ -54,14 +54,17 @@
                     <div class="admin-bulk-bar">
                         <div class="flex flex-wrap items-center gap-3">
                             <span class="admin-bulk-count">{{ count($selectedPropertyIds) }} selected</span>
-                            <x-admin.button wire:click="bulkApprove" variant="success" size="sm" :disabled="count($selectedPropertyIds) === 0">
-                                Mark Approved
+                            <x-admin.button wire:click="bulkApprove" wire:loading.attr="disabled" wire:target="bulkApprove,bulkReject,bulkUnpublish" variant="success" size="sm" :disabled="count($selectedPropertyIds) === 0">
+                                <span wire:loading.remove wire:target="bulkApprove,bulkReject,bulkUnpublish">Mark Approved</span>
+                                <span wire:loading wire:target="bulkApprove,bulkReject,bulkUnpublish">Updating...</span>
                             </x-admin.button>
-                            <x-admin.button wire:click="bulkReject" variant="danger" size="sm" :disabled="count($selectedPropertyIds) === 0">
-                                Mark Rejected
+                            <x-admin.button wire:click="bulkReject" wire:loading.attr="disabled" wire:target="bulkApprove,bulkReject,bulkUnpublish" variant="danger" size="sm" :disabled="count($selectedPropertyIds) === 0">
+                                <span wire:loading.remove wire:target="bulkApprove,bulkReject,bulkUnpublish">Mark Rejected</span>
+                                <span wire:loading wire:target="bulkApprove,bulkReject,bulkUnpublish">Updating...</span>
                             </x-admin.button>
-                            <x-admin.button wire:click="bulkUnpublish" variant="secondary" size="sm" :disabled="count($selectedPropertyIds) === 0">
-                                Unpublish
+                            <x-admin.button wire:click="bulkUnpublish" wire:loading.attr="disabled" wire:target="bulkApprove,bulkReject,bulkUnpublish" variant="secondary" size="sm" :disabled="count($selectedPropertyIds) === 0">
+                                <span wire:loading.remove wire:target="bulkApprove,bulkReject,bulkUnpublish">Unpublish</span>
+                                <span wire:loading wire:target="bulkApprove,bulkReject,bulkUnpublish">Updating...</span>
                             </x-admin.button>
                         </div>
 

@@ -1,186 +1,224 @@
-@php($showsOutcome = $detailAvailable && $inspectionRequest && $inspectionRequest->showsOutcome())
+@php
+    $isPaid = $latestPaymentTransaction?->status === 'paid';
+    $isAwaitingTenantResponse = $inspectionRequest?->scheduleNeedsTenantResponse() ?? false;
+    $tenantRequestedAnotherDate = $inspectionRequest?->status === 'requested' && $inspectionRequest?->schedule_response === 'reschedule_requested';
+    $isNewRequest = $inspectionRequest?->status === 'requested' && ! $tenantRequestedAnotherDate;
+    $scheduleAccepted = $inspectionRequest?->scheduleIsAcceptedOrLegacy() ?? false;
+    $canCompleteInspection = $isPaid && $scheduleAccepted;
+    $scheduleActionLabel = $tenantRequestedAnotherDate
+        ? 'Send new schedule'
+        : ($isPaid ? 'Send updated schedule' : ($isNewRequest ? 'Send proposed schedule' : 'Send updated schedule'));
+@endphp
 
 <div class="admin-page">
     <div class="admin-page-inner">
         @if (session('status'))
-            <x-admin.alert>
-                {{ session('status') }}
-            </x-admin.alert>
+            <x-admin.alert>{{ session('status') }}</x-admin.alert>
         @endif
 
         @if (! $detailAvailable)
             <x-admin.panel>
-                <x-admin.empty-state
-                    title="Inspection request detail data is not available yet in this environment."
-                    copy="This page will appear when inspection data is available."
-                />
+                <x-admin.empty-state title="Inspection request detail data is not available yet in this environment." copy="This page will appear when inspection data is available." />
             </x-admin.panel>
         @else
-            <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
-                    <div class="space-y-6">
+            <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
+                <div class="space-y-6">
+                    <x-admin.panel>
+                        <div class="space-y-4">
+                            <div>
+                                <p class="admin-eyebrow">Current inspection status</p>
+                                <h3 class="admin-panel-title">{{ str($inspectionRequest->status)->headline() }}</h3>
+                            </div>
+                            <div class="admin-data-box">
+                                @if ($isNewRequest)
+                                    <p class="font-semibold text-slate-900">New inspection request</p>
+                                    <p class="mt-1 text-sm text-slate-700">Choose a suitable visit time and send the tenant a proposed schedule.</p>
+                                @elseif ($tenantRequestedAnotherDate)
+                                    <p class="font-semibold text-slate-900">Tenant requested another date</p>
+                                    <p class="mt-1 text-sm text-slate-700">Review the tenant's alternative-date note and send a new proposal.</p>
+                                @elseif ($isAwaitingTenantResponse)
+                                    <p class="font-semibold text-slate-900">Waiting for tenant response</p>
+                                    <p class="mt-1 text-sm text-slate-700">The tenant must accept this proposed time or request another date before booking-fee checkout is available.</p>
+                                @elseif ($scheduleAccepted && ! $isPaid)
+                                    <p class="font-semibold text-slate-900">Schedule accepted</p>
+                                    <p class="mt-1 text-sm text-slate-700">Waiting for booking fee. The tenant can now review the terms and complete checkout.</p>
+                                @elseif ($isPaid && ! $inspectionRequest->showsOutcome())
+                                    <p class="font-semibold text-slate-900">Booking fee paid</p>
+                                    <p class="mt-1 text-sm text-slate-700">Inspection booked. Coordinate the visit and record the outcome when it is ready to be completed.</p>
+                                @elseif ($inspectionRequest->showsOutcome())
+                                    <p class="font-semibold text-slate-900">Inspection completed</p>
+                                    <p class="mt-1 text-sm text-slate-700">The tenant can review the recorded outcome and any available next step.</p>
+                                @else
+                                    <p class="font-semibold text-slate-900">Inspection update</p>
+                                    <p class="mt-1 text-sm text-slate-700">This inspection is currently {{ str($inspectionRequest->status)->headline() }}.</p>
+                                @endif
+                            </div>
+                        </div>
+                    </x-admin.panel>
+
+                    <x-admin.panel>
+                        <div class="space-y-4">
+                            <div>
+                                <p class="admin-eyebrow">Tenant request</p>
+                                <h3 class="admin-panel-title">Request summary</h3>
+                            </div>
+                            <dl class="grid gap-4 text-sm text-slate-700 md:grid-cols-2">
+                                <div><dt class="font-medium text-slate-500">Tenant</dt><dd class="mt-1 break-words">{{ $inspectionRequest->tenant?->name }}</dd></div>
+                                <div><dt class="font-medium text-slate-500">Preferred date</dt><dd class="mt-1">{{ $inspectionRequest->preferred_date?->toFormattedDateString() ?: 'Not provided' }}</dd></div>
+                                <div><dt class="font-medium text-slate-500">Preferred time note</dt><dd class="mt-1 break-words">{{ $inspectionRequest->preferred_time_note ?: 'Not provided' }}</dd></div>
+                                <div><dt class="font-medium text-slate-500">Property</dt><dd class="mt-1 break-words">{{ $inspectionRequest->property?->title }}</dd></div>
+                                <div class="md:col-span-2"><dt class="font-medium text-slate-500">Tenant message</dt><dd class="mt-1 break-words">{{ $inspectionRequest->message ?: 'No message provided.' }}</dd></div>
+                            </dl>
+                        </div>
+                    </x-admin.panel>
+
+                    @if ($inspectionRequest->scheduled_at)
                         <x-admin.panel>
                             <div class="space-y-4">
                                 <div>
-                                    <h3 class="text-lg font-semibold text-slate-950">Inspection control center</h3>
-                                    <p class="mt-1 text-sm text-slate-600">Manage the inspection request here.</p>
+                                    <p class="admin-eyebrow">Schedule</p>
+                                    <h3 class="admin-panel-title">{{ $isAwaitingTenantResponse ? 'Proposed schedule' : 'Inspection date' }}</h3>
                                 </div>
-
-                                <dl class="grid gap-4 md:grid-cols-2 text-sm text-slate-700">
-                                    <div><dt class="font-medium text-slate-500">Title</dt><dd class="mt-1">{{ $inspectionRequest->property?->title }}</dd></div>
-                                    <div><dt class="font-medium text-slate-500">Location</dt><dd class="mt-1">{{ $inspectionRequest->property?->area }}, {{ $inspectionRequest->property?->city }}</dd></div>
-                                    <div><dt class="font-medium text-slate-500">Property type</dt><dd class="mt-1">{{ str($inspectionRequest->property?->property_type)->headline() }}</dd></div>
-                                    <div><dt class="font-medium text-slate-500">{{ $inspectionRequest->property?->primaryPriceLabel() ?? 'Price' }}</dt><dd class="mt-1">{{ $this->formatMoney($inspectionRequest->property?->rent_amount) }}</dd></div>
-                                    <div><dt class="font-medium text-slate-500">Landlord</dt><dd class="mt-1">{{ $inspectionRequest->property?->landlord?->name ?: 'Not available' }}</dd></div>
-                                    <div><dt class="font-medium text-slate-500">Landlord view</dt><dd class="mt-1">The landlord only sees admin updates</dd></div>
+                                <dl class="grid gap-4 text-sm text-slate-700 md:grid-cols-2">
+                                    <div><dt class="font-medium text-slate-500">Date and time</dt><dd class="mt-1 font-medium text-slate-900">{{ $inspectionRequest->scheduled_at->format('M j, Y g:i A') }}</dd></div>
+                                    @if ($isAwaitingTenantResponse)
+                                        <div><dt class="font-medium text-slate-500">Date sent</dt><dd class="mt-1">{{ $inspectionRequest->updated_at?->format('M j, Y g:i A') ?: 'Not available' }}</dd></div>
+                                    @elseif ($scheduleAccepted)
+                                        <div><dt class="font-medium text-slate-500">Tenant acceptance</dt><dd class="mt-1">Accepted {{ $inspectionRequest->schedule_responded_at?->format('M j, Y g:i A') ?: '' }}</dd></div>
+                                    @endif
                                 </dl>
+                                @if ($isAwaitingTenantResponse && ! $showScheduleEditor)
+                                    <x-admin.button wire:click="changeProposedSchedule" wire:loading.attr="disabled" wire:target="changeProposedSchedule" variant="secondary">Change proposed schedule</x-admin.button>
+                                @elseif ($isPaid && $scheduleAccepted && ! $showScheduleEditor && ! $inspectionRequest->showsOutcome())
+                                    <x-admin.button wire:click="rescheduleInspection" wire:loading.attr="disabled" wire:target="rescheduleInspection" variant="secondary">Reschedule inspection</x-admin.button>
+                                @endif
                             </div>
                         </x-admin.panel>
+                    @endif
 
+                    @if ($tenantRequestedAnotherDate)
                         <x-admin.panel>
-                            <div class="space-y-4">
-                                <div>
-                                    <h3 class="text-lg font-semibold text-slate-950">Tenant summary</h3>
-                                </div>
-
-                                <dl class="grid gap-4 md:grid-cols-2 text-sm text-slate-700">
-                                    <div><dt class="font-medium text-slate-500">Name</dt><dd class="mt-1">{{ $inspectionRequest->tenant?->name }}</dd></div>
-                                    <div><dt class="font-medium text-slate-500">Email</dt><dd class="mt-1">{{ $inspectionRequest->tenant?->email }}</dd></div>
-                                    <div><dt class="font-medium text-slate-500">Preferred date</dt><dd class="mt-1">{{ $inspectionRequest->preferred_date?->toFormattedDateString() ?: 'Not provided' }}</dd></div>
-                                    <div><dt class="font-medium text-slate-500">Preferred time note</dt><dd class="mt-1">{{ $inspectionRequest->preferred_time_note ?: 'Not provided' }}</dd></div>
-                                    <div class="md:col-span-2"><dt class="font-medium text-slate-500">Message</dt><dd class="mt-1">{{ $inspectionRequest->message ?: 'No message provided.' }}</dd></div>
-                                </dl>
+                            <div class="space-y-3">
+                                <p class="admin-eyebrow">Tenant response</p>
+                                <h3 class="admin-panel-title">Requested alternative</h3>
+                                <p class="break-words text-sm text-slate-700">{{ $inspectionRequest->schedule_response_notes ?: 'No alternative-date note was provided.' }}</p>
+                                <p class="text-xs text-slate-500">Responded {{ $inspectionRequest->schedule_responded_at?->format('M j, Y g:i A') ?: 'recently' }}</p>
                             </div>
                         </x-admin.panel>
-                    </div>
+                    @endif
 
-                    <div class="space-y-6">
+                    @if ($inspectionRequest->showsOutcome() && ($inspectionRequest->outcomeLabel() || $inspectionRequest->hasOutcomeNotes()))
+                        <x-admin.panel>
+                            <div class="space-y-3">
+                                <p class="admin-eyebrow">Inspection outcome</p>
+                                <h3 class="admin-panel-title">Recorded outcome</h3>
+                                <p class="font-medium text-slate-900">{{ $inspectionRequest->outcomeLabel() ?: 'No outcome selected' }}</p>
+                                @if ($inspectionRequest->hasOutcomeNotes())
+                                    <p class="break-words text-sm text-slate-700">{{ $inspectionRequest->outcome_notes }}</p>
+                                @endif
+                            </div>
+                        </x-admin.panel>
+                    @endif
+                </div>
+
+                <div class="space-y-6">
+                    @if ($showScheduleEditor)
                         <x-admin.panel>
                             <div class="space-y-4">
                                 <div>
-                                    <h3 class="text-lg font-semibold text-slate-950">Coordinator actions</h3>
-                                    <p class="mt-1 text-sm text-slate-600">Status: {{ str($inspectionRequest->status)->headline() }}</p>
+                                    <p class="admin-eyebrow">Schedule action</p>
+                                    <h3 class="admin-panel-title">{{ $scheduleActionLabel }}</h3>
+                                    <p class="admin-panel-copy">The tenant will be notified and must accept this time before the inspection can proceed.</p>
                                 </div>
-
-                                <div class="admin-data-box">
-                                    <dl class="grid gap-4 text-sm text-slate-700 md:grid-cols-2">
-                                        <div>
-                                            <dt class="font-medium text-slate-500">Payment readiness</dt>
-                                            <dd class="mt-1">{{ $this->paymentReadiness($latestPaymentTransaction) }}</dd>
-                                        </div>
-                                        <div>
-                                            <dt class="font-medium text-slate-500">Scheduling responsibility</dt>
-                                            <dd class="mt-1">
-                                                @if ($latestPaymentTransaction && in_array($latestPaymentTransaction->status, ['initiated', 'pending'], true))
-                                                    Hold scheduling until payment is verified
-                                                @else
-                                                    {{ $inspectionRequest->scheduled_at ? 'Scheduled by admin' : 'Needs scheduling' }}
-                                                @endif
-                                            </dd>
-                                        </div>
-                                        <div>
-                                            <dt class="font-medium text-slate-500">Landlord coordination</dt>
-                                            <dd class="mt-1">{{ $inspectionRequest->landlord_note ? 'Landlord note received' : 'No landlord note yet' }}</dd>
-                                        </div>
-                                        <div>
-                                            <dt class="font-medium text-slate-500">Outcome status</dt>
-                                            <dd class="mt-1">{{ $showsOutcome ? ($inspectionRequest->outcomeLabel() ?: 'Completed without outcome label') : 'Not ready' }}</dd>
-                                        </div>
-                                    </dl>
-                                </div>
-
                                 <div>
-                                    <x-admin.label for="scheduledAt">Scheduled date and time</x-admin.label>
+                                    <x-admin.label for="scheduledAt">Proposed date and time</x-admin.label>
                                     <x-admin.input wire:model.defer="scheduledAt" id="scheduledAt" type="datetime-local" />
                                     <x-admin.error for="scheduledAt" />
                                 </div>
-
                                 <div>
-                                    <x-admin.label for="adminNotes">Admin notes</x-admin.label>
-                                    <x-admin.textarea wire:model.defer="adminNotes" id="adminNotes" rows="4" />
+                                    <x-admin.label for="scheduleAdminNotes">Scheduling note (optional)</x-admin.label>
+                                    <x-admin.textarea wire:model.defer="adminNotes" id="scheduleAdminNotes" rows="4" />
                                     <x-admin.error for="adminNotes" />
                                 </div>
+                                <x-admin.button wire:click="changeStatus('scheduled')" wire:loading.attr="disabled" wire:target="changeStatus" class="w-full sm:w-auto">
+                                    <span wire:loading.remove wire:target="changeStatus">{{ $scheduleActionLabel }}</span>
+                                    <span wire:loading wire:target="changeStatus">Sending...</span>
+                                </x-admin.button>
+                            </div>
+                        </x-admin.panel>
+                    @endif
 
+                    @if ($canCompleteInspection)
+                        <x-admin.panel>
+                            <div class="space-y-4">
                                 <div>
-                                    <x-admin.label for="outcomeNotes">Inspection outcome notes</x-admin.label>
-                                    <x-admin.textarea wire:model.defer="outcomeNotes" id="outcomeNotes" rows="4" />
-                                    <x-admin.error for="outcomeNotes" />
+                                    <p class="admin-eyebrow">Inspection completion</p>
+                                    <h3 class="admin-panel-title">Record inspection outcome</h3>
+                                    <p class="admin-panel-copy">Booking fee is paid. Record the visit result when the inspection is ready to be closed.</p>
                                 </div>
-
                                 <div>
                                     <x-admin.label for="outcomeType">Inspection outcome</x-admin.label>
                                     <x-admin.select wire:model.defer="outcomeType" id="outcomeType">
-                                        <option value="">No outcome selected</option>
+                                        <option value="">Select an outcome</option>
                                         @foreach ($outcomeOptions as $value => $label)
                                             <option value="{{ $value }}">{{ $label }}</option>
                                         @endforeach
                                     </x-admin.select>
                                     <x-admin.error for="outcomeType" />
                                 </div>
-
-                                @if ($paymentTransactionsAvailable)
-                                    <div class="admin-data-box">
-                                        <p class="text-sm font-medium text-slate-900">Latest payment status</p>
-                                        <p class="mt-2 text-sm text-slate-700">{{ $this->paymentStatusSummary($latestPaymentTransaction) }}</p>
-                                        @if ($latestPaymentTransaction)
-                                            <p class="mt-2 text-xs text-slate-500">
-                                                {{ str($latestPaymentTransaction->status)->headline() }} via {{ $this->providerLabel($latestPaymentTransaction->provider) }}
-                                                at reference <span class="font-mono text-[11px] text-slate-600">{{ $latestPaymentTransaction->reference }}</span>.
-                                            </p>
-                                            <a href="{{ route('admin.payments.index', ['reference' => $latestPaymentTransaction->reference]) }}" class="admin-inline-link">Open payment record</a>
-                                        @else
-                                            <a href="{{ route('admin.payments.index') }}" class="admin-inline-link">Open payments workspace</a>
-                                        @endif
-                                    </div>
-                                @endif
-
-                                <div class="flex flex-wrap gap-3">
-                                    <x-admin.button wire:click="changeStatus('scheduled')" wire:loading.attr="disabled" wire:target="changeStatus">
-                                        <span wire:loading.remove wire:target="changeStatus">Schedule</span>
-                                        <span wire:loading wire:target="changeStatus">Processing...</span>
-                                    </x-admin.button>
-                                    <x-admin.button wire:click="changeStatus('completed')" wire:loading.attr="disabled" wire:target="changeStatus" variant="success">
-                                        <span wire:loading.remove wire:target="changeStatus">Complete</span>
-                                        <span wire:loading wire:target="changeStatus">Processing...</span>
-                                    </x-admin.button>
-                                    <x-admin.button wire:click="changeStatus('rejected')" wire:loading.attr="disabled" wire:target="changeStatus" variant="danger">
-                                        <span wire:loading.remove wire:target="changeStatus">Reject</span>
-                                        <span wire:loading wire:target="changeStatus">Processing...</span>
-                                    </x-admin.button>
-                                    <x-admin.button wire:click="changeStatus('cancelled')" wire:loading.attr="disabled" wire:target="changeStatus" variant="warning">
-                                        <span wire:loading.remove wire:target="changeStatus">Cancel</span>
-                                        <span wire:loading wire:target="changeStatus">Processing...</span>
-                                    </x-admin.button>
-                                    <x-admin.button wire:click="saveCoordinationNotes" wire:loading.attr="disabled" wire:target="saveCoordinationNotes" variant="secondary">
-                                        <span wire:loading.remove wire:target="saveCoordinationNotes">Save notes</span>
-                                        <span wire:loading wire:target="saveCoordinationNotes">Saving...</span>
-                                    </x-admin.button>
+                                <div>
+                                    <x-admin.label for="outcomeNotes">Inspection outcome notes</x-admin.label>
+                                    <x-admin.textarea wire:model.defer="outcomeNotes" id="outcomeNotes" rows="4" />
+                                    <x-admin.error for="outcomeNotes" />
                                 </div>
+                                <x-admin.button wire:click="changeStatus('completed')" wire:loading.attr="disabled" wire:target="changeStatus" variant="success" class="w-full sm:w-auto">
+                                    <span wire:loading.remove wire:target="changeStatus">Complete inspection</span>
+                                    <span wire:loading wire:target="changeStatus">Completing...</span>
+                                </x-admin.button>
+                            </div>
+                        </x-admin.panel>
+                    @endif
 
-                                <div class="admin-data-box">
-                                    <p class="text-sm font-medium text-slate-900">Landlord coordination note</p>
-                                    <p class="mt-2 text-sm text-slate-700">{{ $inspectionRequest->landlord_note ?: 'No landlord note yet.' }}</p>
-                                </div>
+                    <x-admin.panel>
+                        <div class="space-y-4">
+                            <div><p class="admin-eyebrow">Coordination notes</p><h3 class="admin-panel-title">Internal notes</h3></div>
+                            <div>
+                                <x-admin.label for="adminNotes">Note</x-admin.label>
+                                <x-admin.textarea wire:model.defer="adminNotes" id="adminNotes" rows="4" />
+                                <x-admin.error for="adminNotes" />
+                            </div>
+                            <x-admin.button wire:click="saveCoordinationNotes" wire:loading.attr="disabled" wire:target="saveCoordinationNotes" variant="secondary" class="w-full sm:w-auto">
+                                <span wire:loading.remove wire:target="saveCoordinationNotes">Save notes</span>
+                                <span wire:loading wire:target="saveCoordinationNotes">Saving...</span>
+                            </x-admin.button>
+                            <div class="admin-data-box"><p class="text-sm font-medium text-slate-900">Landlord coordination note</p><p class="mt-2 break-words text-sm text-slate-700">{{ $inspectionRequest->landlord_note ?: 'No landlord note yet.' }}</p></div>
+                        </div>
+                    </x-admin.panel>
 
-                                @if ($showsOutcome && ($inspectionRequest->outcomeLabel() || $inspectionRequest->hasOutcomeNotes()))
-                                    <div class="admin-data-box-success">
-                                        <p class="text-sm font-medium text-emerald-900">Current outcome summary</p>
-                                        <p class="mt-2 text-sm text-emerald-800">{{ $inspectionRequest->outcomeLabel() ?: 'No outcome selected' }}</p>
-                                        @if ($inspectionRequest->hasOutcomeNotes())
-                                            <p class="mt-2 text-sm text-emerald-800">{{ $inspectionRequest->outcome_notes }}</p>
-                                        @endif
-                                    </div>
+                    @if ($paymentTransactionsAvailable && ($scheduleAccepted || $isPaid || $latestPaymentTransaction))
+                        <x-admin.panel>
+                            <div class="space-y-3">
+                                <p class="admin-eyebrow">Booking payment</p>
+                                <h3 class="admin-panel-title">{{ $isPaid ? 'Booking fee paid' : 'Waiting for booking fee' }}</h3>
+                                <p class="text-sm text-slate-700">{{ $this->paymentReadiness($latestPaymentTransaction) }}</p>
+                                @if ($latestPaymentTransaction)
+                                    <p class="text-sm text-slate-600">{{ $this->paymentStatusSummary($latestPaymentTransaction) }}</p>
+                                    <a href="{{ route('admin.payments.index', ['reference' => $latestPaymentTransaction->reference]) }}" class="admin-inline-link">Open payment record</a>
                                 @endif
                             </div>
                         </x-admin.panel>
+                    @endif
 
-                        <x-admin.partials.status-history-card
-                            title="Status history"
-                            description="Every change is recorded here."
-                            :histories="$inspectionRequest->statusHistories"
-                            fallbackChangedBy="System"
-                        />
-                    </div>
+                    @if ($scheduleAccepted && ! $isPaid)
+                        <div class="flex flex-wrap gap-3">
+                            <x-admin.button wire:click="changeStatus('cancelled')" wire:loading.attr="disabled" wire:target="changeStatus" variant="warning">Cancel</x-admin.button>
+                            <x-admin.button wire:click="changeStatus('rejected')" wire:loading.attr="disabled" wire:target="changeStatus" variant="danger">Reject</x-admin.button>
+                        </div>
+                    @endif
+
+                    <x-admin.partials.status-history-card title="Status history" description="Every change is recorded here." :histories="$inspectionRequest->statusHistories" fallbackChangedBy="System" />
                 </div>
+            </div>
         @endif
     </div>
 </div>

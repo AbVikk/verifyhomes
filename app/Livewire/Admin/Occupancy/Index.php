@@ -9,6 +9,7 @@ use App\Models\OccupancyMoveOutRequest;
 use App\Models\Property;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Support\WorkflowNotifier;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -81,7 +82,9 @@ class Index extends Component
             return;
         }
 
-        DB::transaction(function () use ($requestId): void {
+        $activatedUpcoming = null;
+
+        DB::transaction(function () use ($requestId, &$activatedUpcoming): void {
             $request = OccupancyMoveOutRequest::query()->lockForUpdate()->findOrFail($requestId);
 
             if ($request->status !== 'pending') {
@@ -100,6 +103,9 @@ class Index extends Component
 
                 return;
             }
+
+            // Match payment completion's tenant lock before promoting a reserved stay.
+            User::query()->lockForUpdate()->find($occupancy->tenant_id);
 
             $property = Property::query()->lockForUpdate()->find($occupancy->property_id);
             $units = max(1, (int) ($occupancy->units ?? 1));
@@ -121,7 +127,48 @@ class Index extends Component
                 'decided_by' => auth()->id(),
                 'decision_notes' => $this->decisionNotes[$requestId] ?? null,
             ]);
+
+            $upcoming = Occupancy::query()
+                ->where('tenant_id', $occupancy->tenant_id)
+                ->upcoming()
+                ->lockForUpdate()
+                ->latest('created_at')
+                ->first();
+
+            if ($upcoming) {
+                $upcomingProperty = Property::query()->lockForUpdate()->find($upcoming->property_id);
+
+                if ($upcomingProperty) {
+                    $upcomingUnits = max(1, (int) $upcoming->units);
+                    $upcomingProperty->forceFill([
+                        'reserved_units' => max(0, (int) $upcomingProperty->reserved_units - $upcomingUnits),
+                        'occupied_units' => min((int) $upcomingProperty->total_units, (int) $upcomingProperty->occupied_units + $upcomingUnits),
+                    ])->save();
+                }
+
+                $upcoming->forceFill([
+                    'status' => 'active',
+                    'started_at' => now(),
+                    'last_payment_at' => now(),
+                    'next_payment_due_at' => now()->addMonthsNoOverflow($upcoming->paymentCycleMonths()),
+                ])->save();
+                $activatedUpcoming = $upcoming->fresh(['property', 'tenant']);
+            }
         });
+
+        if ($activatedUpcoming) {
+            $notifier = app(WorkflowNotifier::class);
+            $tenant = $activatedUpcoming->tenant;
+            $property = $activatedUpcoming->property;
+
+            if ($tenant) {
+                $notifier->notify($tenant, 'upcoming-rental-activated:'.$activatedUpcoming->getKey(), 'Your new stay is now active', $property ? "Your previous stay has ended and {$property->title} is now your current stay." : 'Your previous stay has ended and your new stay is now active.', route('tenant.occupancy.index'), 'occupancy_update', 'View My Stay');
+            }
+
+            if ($property?->landlord) {
+                $notifier->notify($property->landlord, 'upcoming-rental-activated:'.$activatedUpcoming->getKey().':landlord', 'Occupancy activated', "A reserved rental at {$property->title} is now active.", route('landlord.occupancy.index'), 'occupancy_update', 'View occupants');
+            }
+        }
 
         $this->decisionNotes[$requestId] = '';
 

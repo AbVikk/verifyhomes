@@ -3,8 +3,8 @@
         <x-admin.panel>
             <div class="space-y-2">
                 <p class="admin-eyebrow">Occupants</p>
-                <h2 class="admin-panel-title">Active tenants and rent cadence</h2>
-                <p class="admin-panel-copy">Monitor your occupied listings and the next rent due for each tenant.</p>
+                <h2 class="admin-panel-title">Occupants and upcoming reservations</h2>
+                <p class="admin-panel-copy">Monitor active tenants, move-out states, and rental units reserved for an upcoming stay.</p>
             </div>
         </x-admin.panel>
 
@@ -53,7 +53,7 @@
                                         @endif
                                     </div>
                                     <div class="space-y-1">
-                                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Occupied listing</p>
+                                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Rental listing</p>
                                         <h3 class="text-lg font-semibold text-slate-950">{{ $property?->title ?? 'Property' }}</h3>
                                         <p class="text-sm text-slate-600">{{ $property?->city ?? 'Location' }} - {{ $property?->availabilityDetail() ?? '' }}</p>
                                         <p class="text-xs text-slate-500">{{ $property?->listingIntentLabel() ?? 'For rent' }}</p>
@@ -85,7 +85,7 @@
                                                 $overdueDays = $occupancy->overdueDays();
                                                 $statusTone = $occupancy->status === 'moved_out'
                                                     ? 'neutral'
-                                                    : ($occupancy->status === 'move_out_pending' ? 'warning' : 'success');
+                                                    : ($occupancy->status === 'upcoming' ? 'info' : ($occupancy->status === 'move_out_pending' ? 'warning' : 'success'));
                                                 $rentTone = $overdueDays && $overdueDays > 0
                                                     ? 'danger'
                                                     : (($daysRemaining !== null && $daysRemaining <= 30) ? 'warning' : 'info');
@@ -112,10 +112,12 @@
                                                     <x-status-chip tone="{{ $statusTone }}">{{ str($occupancy->status)->headline() }}</x-status-chip>
                                                 </td>
                                                 <td class="px-4 py-4 text-sm text-slate-700">
-                                                    {{ $dueAt && $isRent ? $dueAt->format('M j, Y') : 'Not required' }}
+                                                    {{ $occupancy->status === 'upcoming' ? 'After current stay closes' : ($dueAt && $isRent ? $dueAt->format('M j, Y') : 'Not required') }}
                                                 </td>
                                                 <td class="px-4 py-4 text-sm text-slate-700">
-                                                    @if (! $isRent)
+                                                    @if ($occupancy->status === 'upcoming')
+                                                        -
+                                                    @elseif (! $isRent)
                                                         Not required
                                                     @elseif ($daysRemaining === null)
                                                         Unavailable
@@ -126,7 +128,9 @@
                                                     @endif
                                                 </td>
                                                 <td class="px-4 py-4 text-sm text-slate-700">
-                                                    @if (! $isRent)
+                                                    @if ($occupancy->status === 'upcoming')
+                                                        -
+                                                    @elseif (! $isRent)
                                                         Not required
                                                     @elseif ($overdueDays && $overdueDays > 0)
                                                         {{ $overdueDays }} day{{ $overdueDays === 1 ? '' : 's' }}
@@ -135,7 +139,9 @@
                                                     @endif
                                                 </td>
                                                 <td class="px-4 py-4 text-sm text-slate-700">
-                                                    @if ($isRent)
+                                                    @if ($occupancy->status === 'upcoming')
+                                                        <x-status-chip tone="info">Upcoming rental secured</x-status-chip>
+                                                    @elseif ($isRent)
                                                         <x-status-chip tone="{{ $rentTone }}">{{ $occupancy->paymentStatusLabel() }}</x-status-chip>
                                                     @else
                                                         <x-status-chip tone="success">Purchase recorded</x-status-chip>

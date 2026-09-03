@@ -154,7 +154,7 @@ class NotificationCenterTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_rent_reminders_skip_purchase_and_moved_out_occupancies(): void
+    public function test_rent_reminders_skip_purchase_moved_out_and_upcoming_occupancies(): void
     {
         Carbon::setTestNow('2026-06-04 09:00:00');
 
@@ -165,11 +165,18 @@ class NotificationCenterTest extends TestCase
             'listing_intent' => 'for_sale',
         ]);
         $rentProperty = $this->createRentProperty($landlord, ['title' => 'Moved Out Home']);
+        $upcomingProperty = $this->createRentProperty($landlord, ['title' => 'Upcoming Home']);
 
         $this->createOccupancy($tenant, $purchaseProperty, ['next_payment_due_at' => now()->addDays(30)]);
         $this->createOccupancy($tenant, $rentProperty, [
             'status' => 'moved_out',
             'next_payment_due_at' => now()->addDays(30),
+        ]);
+        $this->createOccupancy($tenant, $upcomingProperty, [
+            'status' => 'upcoming',
+            'started_at' => null,
+            'last_payment_at' => null,
+            'next_payment_due_at' => null,
         ]);
 
         Artisan::call('rent-reminders:generate');

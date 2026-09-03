@@ -145,8 +145,9 @@
                                 @error('landlordNote') <p class="admin-error">{{ $message }}</p> @enderror
                             </div>
 
-                            <button wire:click="saveLandlordNote" type="button" class="admin-button admin-button-primary">
-                                Save note
+                            <button wire:click="saveLandlordNote" wire:loading.attr="disabled" wire:target="saveLandlordNote" type="button" class="admin-button admin-button-primary">
+                                <span wire:loading.remove wire:target="saveLandlordNote">Save note</span>
+                                <span wire:loading wire:target="saveLandlordNote">Saving...</span>
                             </button>
                         </div>
                     </x-admin.panel>

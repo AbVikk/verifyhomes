@@ -51,6 +51,20 @@
 
     <div class="admin-subsurface p-5 space-y-4">
         <div>
+            <h3 class="text-base font-semibold text-slate-900">Property Terms &amp; Conditions</h3>
+            <p class="admin-help">Optional rules or conditions that tenants should review for this specific property. These are separate from VerifyHomes listing terms.</p>
+        </div>
+
+        <div>
+            <label for="propertyTerms" class="admin-label">Property-specific terms</label>
+            <textarea wire:model.defer="propertyTerms" id="propertyTerms" rows="6" class="admin-control admin-control-textarea" placeholder="Examples: move-in expectations, maintenance responsibilities, caution conditions, or property-use restrictions."></textarea>
+            <p class="admin-help">Use clear, practical wording. Leave this blank if there are no additional property-specific conditions.</p>
+            @error('propertyTerms') <p class="admin-error">{{ $message }}</p> @enderror
+        </div>
+    </div>
+
+    <div class="admin-subsurface p-5 space-y-4">
+        <div>
             <h3 class="text-base font-semibold text-slate-900">Pricing and layout</h3>
             <p class="admin-help">The main amount label stays tied to the selected listing purpose so the pricing meaning stays consistent. Rental listings also show how the 20% platform fee affects the final listed rent and landlord net.</p>
         </div>

@@ -37,6 +37,24 @@ class LandlordPropertyWorkflowClarityTest extends TestCase
         $response->assertSee('This listing will read as a rental listing');
         $response->assertSee('Unit inventory foundation');
         $response->assertSee('Units only reduce after successful completed rent payments, not inspection requests, saves, favorites, or early checkout steps.');
+        $response->assertSee('Property Terms &amp; Conditions', false);
+    }
+
+    public function test_landlord_can_save_property_specific_terms(): void
+    {
+        $landlord = $this->createLandlord();
+        $property = $this->createProperty($landlord, ['title' => 'Terms Listing']);
+
+        $this->actingAs($landlord);
+        $this->completeListingTermsGate('listing-terms:property:'.$property->getKey());
+
+        Livewire::test(LandlordPropertyEdit::class, ['property' => $property])
+            ->set('propertyTerms', 'No commercial use. Caution deposit is due before move-in.')
+            ->set('hasAcceptedListingTerms', true)
+            ->call('save')
+            ->assertRedirect(route('landlord.properties'));
+
+        $this->assertSame('No commercial use. Caution deposit is due before move-in.', $property->fresh()->property_terms);
     }
 
     public function test_listing_intent_context_updates_primary_amount_label_for_sale_and_lease(): void

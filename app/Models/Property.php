@@ -23,6 +23,7 @@ class Property extends Model
         'title',
         'slug',
         'description',
+        'property_terms',
         'listing_intent',
         'pricing_model',
         'property_type',
@@ -36,6 +37,7 @@ class Property extends Model
         'service_charge',
         'total_units',
         'occupied_units',
+        'reserved_units',
         'bedrooms',
         'bathrooms',
         'toilets',
@@ -67,6 +69,7 @@ class Property extends Model
             'service_charge' => 'decimal:2',
             'total_units' => 'integer',
             'occupied_units' => 'integer',
+            'reserved_units' => 'integer',
             'is_verified' => 'boolean',
             'is_published' => 'boolean',
             'verified_at' => 'datetime',
@@ -109,7 +112,7 @@ class Property extends Model
 
     public function getAvailableUnitsAttribute(): int
     {
-        return max(0, (int) $this->total_units - (int) $this->occupied_units);
+        return max(0, (int) $this->total_units - (int) $this->occupied_units - (int) $this->reserved_units);
     }
 
     public function isFullyOccupied(): bool

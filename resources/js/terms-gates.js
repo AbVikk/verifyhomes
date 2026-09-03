@@ -209,6 +209,7 @@ const initializeTermsGates = () => {
         const modalName = root.dataset.termsGateModal;
         const openButton = root.querySelector('[data-terms-gate-open]');
         const summary = root.querySelector('[data-terms-gate-summary]');
+        const guidanceMessage = root.querySelector('[data-terms-gate-guidance-message]');
         const hiddenInputs = [...root.querySelectorAll('[data-terms-gate-hidden-input]')];
         const submitButtons = [...root.querySelectorAll('[data-terms-gate-submit-button]')];
         const openUrl = root.dataset.termsGateOpenUrl;
@@ -314,6 +315,22 @@ const initializeTermsGates = () => {
             });
         };
 
+        const renderGuidanceMessage = () => {
+            if (!guidanceMessage) {
+                return;
+            }
+
+            if (!state.warning) {
+                guidanceMessage.classList.add('hidden');
+                guidanceMessage.textContent = '';
+
+                return;
+            }
+
+            guidanceMessage.textContent = state.warning;
+            guidanceMessage.classList.remove('hidden');
+        };
+
         const syncHiddenInputs = () => {
             hiddenInputs.forEach((input) => {
                 if (input.checked === state.accepted) {
@@ -327,7 +344,12 @@ const initializeTermsGates = () => {
 
         const syncSubmitButtons = () => {
             submitButtons.forEach((button) => {
-                button.disabled = !state.accepted || state.completing;
+                const keepsBlockedButtonsClickable = root.hasAttribute('data-terms-gate-guidance');
+
+                button.disabled = state.completing || (!keepsBlockedButtonsClickable && !state.accepted);
+                button.setAttribute('aria-disabled', (!state.accepted || state.completing) ? 'true' : 'false');
+                button.classList.toggle('opacity-50', !state.accepted && !state.completing);
+                button.classList.toggle('cursor-not-allowed', !state.accepted && !state.completing);
             });
         };
 
@@ -344,6 +366,7 @@ const initializeTermsGates = () => {
             renderSummary();
             renderModalStatus();
             renderWarning();
+            renderGuidanceMessage();
             syncModalCheckbox();
             syncHiddenInputs();
             syncSubmitButtons();
@@ -402,6 +425,18 @@ const initializeTermsGates = () => {
         const showEarlyWarning = () => {
             state.showWarning('Please read the terms before continuing.', nowMs());
             renderWarning();
+        };
+
+        const blockedSubmissionMessage = () => {
+            if (!state.hasOpened) {
+                return 'Please review the inspection terms before sending your request.';
+            }
+
+            if (!state.isUnlocked(nowMs())) {
+                return 'Please finish reading the inspection terms first.';
+            }
+
+            return 'Please accept the inspection terms to continue.';
         };
 
         const openModal = () => {
@@ -478,8 +513,15 @@ const initializeTermsGates = () => {
                 return;
             }
 
+            if (guidanceMessage) {
+                state.showWarning(blockedSubmissionMessage(), nowMs());
+                render();
+            }
+
             attemptOpen().then(() => {
-                showEarlyWarning();
+                if (!guidanceMessage) {
+                    showEarlyWarning();
+                }
             }).catch(() => {
                 state.showWarning('We could not open the terms right now. Please try again.', nowMs());
                 renderWarning();

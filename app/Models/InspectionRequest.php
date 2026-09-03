@@ -25,6 +25,9 @@ class InspectionRequest extends Model
         'outcome_type',
         'outcome_notes',
         'scheduled_at',
+        'schedule_response',
+        'schedule_response_notes',
+        'schedule_responded_at',
         'created_by_ip',
     ];
 
@@ -33,6 +36,7 @@ class InspectionRequest extends Model
         return [
             'preferred_date' => 'date',
             'scheduled_at' => 'datetime',
+            'schedule_responded_at' => 'datetime',
         ];
     }
 
@@ -95,5 +99,17 @@ class InspectionRequest extends Model
     public function hasOutcomeNotes(): bool
     {
         return filled($this->outcome_notes);
+    }
+
+    public function scheduleNeedsTenantResponse(): bool
+    {
+        return $this->status === InspectionRequestOptions::STATUS_SCHEDULED
+            && $this->schedule_response === 'pending';
+    }
+
+    public function scheduleIsAcceptedOrLegacy(): bool
+    {
+        return $this->status === InspectionRequestOptions::STATUS_SCHEDULED
+            && in_array($this->schedule_response, [null, 'accepted'], true);
     }
 }

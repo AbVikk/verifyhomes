@@ -7,6 +7,8 @@ use App\Livewire\Tenant\Occupancy\Index as TenantOccupancyIndex;
 use App\Models\Occupancy;
 use App\Models\OccupancyComplaint;
 use App\Models\OccupancyMoveOutRequest;
+use App\Models\PaymentTransaction;
+use App\Support\PaymentTransactionRecorder;
 use App\Models\Property;
 use App\Models\TenantProfile;
 use App\Models\User;
@@ -59,7 +61,7 @@ class OccupancyWorkflowTest extends TestCase
         $response = $this->actingAs($landlord)->get(route('landlord.occupancy.index'));
 
         $response->assertOk()
-            ->assertSee('Active tenants and rent cadence')
+            ->assertSee('Occupants and upcoming reservations')
             ->assertSee('Landlord Occupancy Listing')
             ->assertSee($tenant->name);
     }
@@ -149,6 +151,58 @@ class OccupancyWorkflowTest extends TestCase
         $this->assertSame(0, $property->occupied_units);
         $this->assertSame('moved_out', $occupancy->status);
         $this->assertSame('approved', $request->status);
+    }
+
+    public function test_paid_next_rental_is_reserved_then_activates_after_approved_move_out(): void
+    {
+        $landlord = $this->createLandlord('upcoming-landlord@example.com');
+        $tenant = $this->createTenant('upcoming-tenant@example.com');
+        $currentProperty = $this->createProperty($landlord, ['title' => 'Current Rental', 'total_units' => 1, 'occupied_units' => 1]);
+        $nextProperty = $this->createProperty($landlord, ['title' => 'Next Rental', 'total_units' => 1, 'occupied_units' => 0]);
+        $currentOccupancy = $this->createOccupancy($tenant, $currentProperty, ['next_payment_due_at' => now()->addDays(30)]);
+
+        $transaction = PaymentTransactionRecorder::createPending([
+            'payer_id' => $tenant->id,
+            'property_id' => $nextProperty->id,
+            'transaction_type' => 'rent_payment',
+            'gross_amount' => $nextProperty->rent_amount,
+            'status' => 'initiated',
+            'provider' => 'stub',
+            'metadata' => ['units_reserved' => 1],
+        ]);
+
+        PaymentTransactionRecorder::markPaid($transaction, 'upcoming-paid-001');
+        PaymentTransactionRecorder::markPaid($transaction->fresh(), 'upcoming-paid-001-replay');
+
+        $nextProperty->refresh();
+        $upcoming = Occupancy::query()->where('tenant_id', $tenant->id)->where('property_id', $nextProperty->id)->firstOrFail();
+        $this->assertSame('upcoming', $upcoming->status);
+        $this->assertSame(1, $nextProperty->reserved_units);
+        $this->assertSame(0, $nextProperty->occupied_units);
+        $this->assertSame(0, $nextProperty->available_units);
+        $this->assertDatabaseCount('occupancies', 2);
+
+        $moveOut = OccupancyMoveOutRequest::create([
+            'occupancy_id' => $currentOccupancy->id,
+            'tenant_id' => $tenant->id,
+            'status' => 'pending',
+            'requested_at' => now(),
+        ]);
+
+        $admin = $this->createRoleUser('admin', 'upcoming-admin@example.com');
+        $this->actingAs($admin);
+        Livewire::test(AdminOccupancyIndex::class)->call('approveMoveOut', $moveOut->id)->assertHasNoErrors();
+
+        $upcoming->refresh();
+        $nextProperty->refresh();
+        $this->assertSame('active', $upcoming->status);
+        $this->assertSame(0, $nextProperty->reserved_units);
+        $this->assertSame(1, $nextProperty->occupied_units);
+
+        Livewire::test(AdminOccupancyIndex::class)->call('approveMoveOut', $moveOut->id)->assertHasNoErrors();
+        $nextProperty->refresh();
+        $this->assertSame(0, $nextProperty->reserved_units);
+        $this->assertSame(1, $nextProperty->occupied_units);
     }
 
     public function test_tenant_can_log_a_complaint_and_admin_can_view_it(): void

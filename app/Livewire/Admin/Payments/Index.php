@@ -9,6 +9,7 @@ use App\Support\Payments\PaymentGatewayManager;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -36,6 +37,25 @@ class Index extends Component
     public function updatingProviderFilter(): void
     {
         $this->resetPage();
+    }
+
+    public function markLandlordSettled(int $transactionId): void
+    {
+        $transaction = PaymentTransaction::query()->findOrFail($transactionId);
+
+        abort_unless(
+            $transaction->status === 'paid'
+            && in_array($transaction->transaction_type, ['rent_payment', 'house_purchase_payment', 'land_purchase_payment', 'purchase_payment'], true),
+            404,
+        );
+
+        $transaction->update([
+            'landlord_settlement_status' => 'recorded_paid',
+            'landlord_settled_at' => now(),
+            'landlord_settled_by' => Auth::id(),
+        ]);
+
+        session()->flash('status', 'Landlord payout recorded internally. This does not initiate or confirm an external bank transfer.');
     }
 
     public function render(): View
@@ -149,6 +169,10 @@ class Index extends Component
 
     public function platformFeeSummary(PaymentTransaction $transaction): string
     {
+        if ($transaction->transaction_type === 'inspection_booking_fee') {
+            return 'VerifyHomes booking revenue: '.$this->formatMoney($transaction->gross_amount, $transaction->currency).'. Landlord amount: '.$this->formatMoney(0, $transaction->currency).'.';
+        }
+
         $percentage = (float) ($transaction->platform_fee_percentage ?? 0);
 
         if ($percentage <= 0) {
@@ -167,6 +191,24 @@ class Index extends Component
     {
         return data_get($transaction->metadata, 'occupancy_update_message')
             ?? data_get($transaction->metadata, 'purchase_update_message');
+    }
+
+    public function canRecordLandlordSettlement(PaymentTransaction $transaction): bool
+    {
+        return $transaction->status === 'paid'
+            && in_array($transaction->transaction_type, ['rent_payment', 'house_purchase_payment', 'land_purchase_payment', 'purchase_payment'], true)
+            && $transaction->landlord_settlement_status !== 'recorded_paid';
+    }
+
+    public function landlordSettlementSummary(PaymentTransaction $transaction): ?string
+    {
+        if (! in_array($transaction->transaction_type, ['rent_payment', 'house_purchase_payment', 'land_purchase_payment', 'purchase_payment'], true)) {
+            return null;
+        }
+
+        return $transaction->landlord_settlement_status === 'recorded_paid'
+            ? 'Landlord payout recorded internally on '.$transaction->landlord_settled_at?->format('M j, Y g:i A').'.'
+            : 'Awaiting internal landlord payout recording. No bank transfer is initiated by VerifyHomes here.';
     }
 
     protected function paymentsAvailable(): bool

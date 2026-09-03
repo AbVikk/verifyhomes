@@ -10,6 +10,7 @@ use App\Models\Property;
 use App\Support\Currency;
 use App\Support\InspectionRequestOptions;
 use App\Support\Payments\PaymentGatewayManager;
+use App\Support\RentalEligibility;
 use App\Support\TermsGateService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
@@ -163,12 +164,12 @@ class Show extends Component
             return 'Inspection requests are not available yet in this environment.';
         }
 
-        if ($this->hasOpenInspectionRequest && $this->latestInspectionRequest) {
-            return 'You already have an active request here. Open it to track payment, scheduling, and the next update.';
+        if ($this->hasExistingInspectionJourney()) {
+            return 'You already have an inspection journey for this property. Open it to continue from the current step.';
         }
 
-        if ($this->latestInspectionRequest) {
-            return 'You can request another visit after your earlier request is closed.';
+        if (! $this->canRequestInspection()) {
+            return $this->rentalEligibilityMessage() ?? 'Inspection requests are not available for this rental journey right now.';
         }
 
         return 'Send your request to VerifyHomes. We handle scheduling with the landlord.';
@@ -410,6 +411,100 @@ class Show extends Component
         return $this->latestInspectionRequest?->outcome_type === 'inspected';
     }
 
+    public function canRequestInspection(): bool
+    {
+        if (! $this->inspectionRequestsAvailable || $this->hasExistingInspectionJourney()) {
+            return false;
+        }
+
+        return $this->property->listing_intent !== 'for_rent'
+            || app(RentalEligibility::class)->forTenant($this->currentUser())['allowed'];
+    }
+
+    public function hasExistingInspectionJourney(): bool
+    {
+        if ($this->latestInspectionRequest && ! in_array($this->latestInspectionRequest->status, ['cancelled', 'rejected'], true)) {
+            return true;
+        }
+
+        return collect([
+            $this->latestRentPaymentTransaction,
+            $this->latestPurchasePaymentTransaction,
+        ])->contains(fn (?PaymentTransaction $transaction) => $transaction && in_array($transaction->status, ['initiated', 'pending', 'paid'], true));
+    }
+
+    public function existingJourneyTitle(): string
+    {
+        if ($this->latestRentPaymentTransaction?->status === 'paid') {
+            return 'Property secured';
+        }
+
+        if ($this->latestPurchasePaymentTransaction?->status === 'paid') {
+            return 'Purchase confirmed';
+        }
+
+        if ($this->canContinueCheckout($this->latestRentPaymentTransaction) || $this->canContinueCheckout($this->latestPurchasePaymentTransaction)) {
+            return 'Property payment started';
+        }
+
+        if ($this->latestInspectionRequest?->status === 'completed') {
+            return 'Inspection completed';
+        }
+
+        if ($this->latestInspectionRequest?->status === 'scheduled') {
+            return 'Inspection schedule ready for review';
+        }
+
+        return 'Inspection request submitted';
+    }
+
+    public function existingJourneyActionLabel(): string
+    {
+        if ($this->latestRentPaymentTransaction?->status === 'paid') {
+            return 'View My Stay';
+        }
+
+        if ($this->latestPurchasePaymentTransaction?->status === 'paid'
+            && data_get($this->latestPurchasePaymentTransaction->metadata, 'purchase_record_id')) {
+            return 'View receipt';
+        }
+
+        if ($this->canContinueCheckout($this->latestRentPaymentTransaction) || $this->canContinueCheckout($this->latestPurchasePaymentTransaction)) {
+            return 'Continue checkout';
+        }
+
+        return $this->latestInspectionRequest?->status === 'scheduled' ? 'Review schedule' : 'View inspection';
+    }
+
+    public function existingJourneyUrl(): string
+    {
+        if ($this->latestRentPaymentTransaction?->status === 'paid') {
+            return route('tenant.occupancy.index');
+        }
+
+        if ($this->latestPurchasePaymentTransaction?->status === 'paid'
+            && data_get($this->latestPurchasePaymentTransaction->metadata, 'purchase_record_id')) {
+            return route('tenant.purchases.show', data_get($this->latestPurchasePaymentTransaction->metadata, 'purchase_record_id'));
+        }
+
+        $transaction = $this->latestRentPaymentTransaction ?? $this->latestPurchasePaymentTransaction;
+
+        if ($this->canContinueCheckout($transaction)) {
+            return (string) data_get($transaction->metadata, 'checkout_url');
+        }
+
+        return route('tenant.inspection-requests.show', ['inspectionRequestId' => $this->latestInspectionRequest?->getKey()]);
+    }
+
+    public function rentalEligibilityMessage(): ?string
+    {
+        if ($this->property->listing_intent !== 'for_rent') {
+            return null;
+        }
+
+        return app(RentalEligibility::class)->forTenant($this->currentUser())['reason'];
+    }
+
     protected function isEligibleForRentPayment(): bool
     {
         if ($this->property->listing_intent !== 'for_rent' || $this->property->available_units <= 0) {
@@ -425,6 +520,10 @@ class Show extends Component
         }
 
         if (! $this->inspectionOutcomeAllowsRentProgression()) {
+            return false;
+        }
+
+        if (! app(RentalEligibility::class)->forTenant($this->currentUser())['allowed']) {
             return false;
         }
 

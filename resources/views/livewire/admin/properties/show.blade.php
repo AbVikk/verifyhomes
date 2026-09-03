@@ -48,7 +48,7 @@
                     <x-admin.panel>
                         <div class="space-y-4">
                             <div>
-                                <h3 class="text-lg font-semibold text-slate-950">Uploaded images</h3>
+                                <h3 class="text-lg font-semibold text-slate-950">Property images</h3>
                                 <p class="mt-1 text-sm text-slate-600">Images remain private to the landlord workflow and admin review for now.</p>
                             </div>
 
@@ -69,8 +69,8 @@
                     <x-admin.panel>
                         <div class="space-y-4">
                             <div>
-                                <h3 class="text-lg font-semibold text-slate-950">Private property documents</h3>
-                                <p class="mt-1 text-sm text-slate-600">Use the secure download links below for review.</p>
+                                <h3 class="text-lg font-semibold text-slate-950">Supporting documents</h3>
+                                <p class="mt-1 text-sm text-slate-600">Only documents submitted for this property are shown. Use the secure download links for review.</p>
                             </div>
 
                             <div class="space-y-3">
@@ -80,8 +80,14 @@
                                             <p class="font-medium text-slate-900">{{ str($document->document_type)->headline() }}</p>
                                             <p class="text-sm text-slate-600">{{ $document->original_name ?: 'Property document' }}</p>
                                             <p class="mt-1 text-xs text-slate-500">Status: {{ str($document->review_status)->headline() }}</p>
+                                            <p class="mt-1 text-xs text-slate-500">Uploaded: {{ $document->created_at?->format('M j, Y') ?: 'Not available' }}</p>
                                         </div>
-                                        <x-admin.button tag="a" variant="secondary" size="sm" href="{{ route('admin.properties.documents.download', [$property, $document]) }}">Download</x-admin.button>
+                                        <div class="flex flex-wrap justify-end gap-2">
+                                            @if ($document->review_status === 'pending')
+                                                <x-admin.action-link href="{{ route('admin.documents.index', ['sourceFilter' => 'property', 'statusFilter' => 'pending', 'search' => $document->original_name]) }}">Review</x-admin.action-link>
+                                            @endif
+                                            <x-admin.button tag="a" variant="secondary" size="sm" href="{{ route('admin.properties.documents.download', [$property, $document]) }}">Download</x-admin.button>
+                                        </div>
                                     </div>
                                 @empty
                                     <x-admin.empty-state title="No property documents uploaded yet." />
@@ -194,6 +200,15 @@
 
                             <x-admin.error for="publish" />
 
+                            @if ($property->status === 'approved' && ! $property->is_published)
+                                <div class="admin-callout">
+                                    <p class="font-semibold text-slate-900">Property approved successfully.</p>
+                                    <p class="mt-1 text-sm text-slate-700">This property is approved but not yet visible to tenants.</p>
+                                </div>
+                            @elseif (! $property->is_published && ! $canBePublished)
+                                <p class="text-sm text-slate-600">This property cannot yet be published because it must be approved and verified first.</p>
+                            @endif
+
                             <div class="flex flex-wrap gap-3">
                                 @if ($property->is_published)
                                     <x-admin.button wire:click="unpublish" wire:loading.attr="disabled" wire:target="unpublish">
@@ -202,7 +217,7 @@
                                     </x-admin.button>
                                 @else
                                     <x-admin.button wire:click="publish" wire:loading.attr="disabled" wire:target="publish" variant="success" :disabled="! $canBePublished">
-                                        <span wire:loading.remove wire:target="publish">Publish</span>
+                                        <span wire:loading.remove wire:target="publish">Publish property</span>
                                         <span wire:loading wire:target="publish">Processing...</span>
                                     </x-admin.button>
                                 @endif

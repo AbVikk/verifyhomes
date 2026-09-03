@@ -13,6 +13,7 @@ class UserNotification extends Model
         'title',
         'body',
         'category',
+        'event_key',
         'link',
         'read_at',
     ];

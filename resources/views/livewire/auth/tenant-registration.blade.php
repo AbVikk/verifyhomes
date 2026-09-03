@@ -36,8 +36,9 @@
                 Back to account type selection
             </a>
 
-            <x-primary-button>
-                Create Tenant Account
+            <x-primary-button wire:loading.attr="disabled" wire:target="register">
+                <span wire:loading.remove wire:target="register">Create Tenant Account</span>
+                <span wire:loading wire:target="register">Creating account...</span>
             </x-primary-button>
         </div>
     </form>

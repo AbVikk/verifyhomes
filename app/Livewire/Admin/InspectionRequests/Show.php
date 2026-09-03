@@ -7,6 +7,7 @@ use App\Livewire\Concerns\InteractsWithAuthenticatedUser;
 use App\Models\InspectionRequest;
 use App\Models\InspectionRequestStatusHistory;
 use App\Models\PaymentTransaction;
+use App\Support\WorkflowNotifier;
 use App\Support\AuditLogger;
 use App\Support\Currency;
 use App\Support\InspectionRequestOptions;
@@ -32,6 +33,8 @@ class Show extends Component
 
     public ?string $outcomeNotes = null;
 
+    public bool $showScheduleEditor = false;
+
     public function mount(?InspectionRequest $inspectionRequest = null, ?string $inspectionRequestId = null): void
     {
         if (! $this->detailAvailable()) {
@@ -44,11 +47,46 @@ class Show extends Component
 
         $this->inspectionRequest = $inspectionRequest;
         $this->syncFormState();
+        $this->showScheduleEditor = $this->shouldShowScheduleEditor($inspectionRequest);
+    }
+
+    public function changeProposedSchedule(): void
+    {
+        if (! $this->canPerformActions() || ! $this->inspectionRequest->scheduleNeedsTenantResponse()) {
+            session()->flash('status', 'There is no proposed schedule available to change right now.');
+
+            return;
+        }
+
+        $this->showScheduleEditor = true;
+    }
+
+    public function rescheduleInspection(): void
+    {
+        if (! $this->canPerformActions() || ! $this->bookingFeeHasBeenPaid()) {
+            session()->flash('status', 'The inspection can be rescheduled after the booking fee is confirmed.');
+
+            return;
+        }
+
+        $this->showScheduleEditor = true;
     }
 
     public function changeStatus(string $status): void
     {
         if (! $this->canPerformActions()) {
+            return;
+        }
+
+        if ($status === InspectionRequestOptions::STATUS_COMPLETED
+            && $this->inspectionRequest->schedule_response !== null
+            && (! $this->hasPaymentTransactionsTable()
+                || ! PaymentTransaction::query()
+                    ->where('inspection_request_id', $this->inspectionRequest->getKey())
+                    ->where('status', 'paid')
+                    ->exists())) {
+            session()->flash('status', 'Confirm the inspection booking fee before recording an inspection outcome.');
+
             return;
         }
 
@@ -67,7 +105,7 @@ class Show extends Component
         $inspectionRequest = $this->inspectionRequest->fresh();
         $fromStatus = $inspectionRequest->status;
 
-        if ($fromStatus === $status) {
+        if ($fromStatus === $status && $status !== InspectionRequestOptions::STATUS_SCHEDULED) {
             session()->flash('status', 'Inspection request already has that status.');
 
             return;
@@ -80,6 +118,9 @@ class Show extends Component
                     ? $this->scheduledAt
                     : $inspectionRequest->scheduled_at,
                 'admin_notes' => $this->adminNotes,
+                'schedule_response' => $status === InspectionRequestOptions::STATUS_SCHEDULED ? 'pending' : $inspectionRequest->schedule_response,
+                'schedule_response_notes' => $status === InspectionRequestOptions::STATUS_SCHEDULED ? null : $inspectionRequest->schedule_response_notes,
+                'schedule_responded_at' => $status === InspectionRequestOptions::STATUS_SCHEDULED ? null : $inspectionRequest->schedule_responded_at,
                 ...$this->outcomeDataForStatus($status),
             ]);
 
@@ -103,12 +144,66 @@ class Show extends Component
                     'outcome_type' => $this->outcomeType,
                 ],
             );
+
+            $this->notifyTenantWorkflowChange($inspectionRequest, $fromStatus, $status);
         });
 
         $this->inspectionRequest = $this->inspectionRequest->fresh();
         $this->syncFormState();
+        $this->showScheduleEditor = $status === InspectionRequestOptions::STATUS_SCHEDULED
+            ? false
+            : $this->shouldShowScheduleEditor($this->inspectionRequest);
 
         session()->flash('status', 'Inspection request updated successfully.');
+    }
+
+    protected function notifyTenantWorkflowChange(InspectionRequest $inspectionRequest, string $fromStatus, string $status): void
+    {
+        if (! Schema::hasTable('user_notifications')) {
+            return;
+        }
+
+        if ($status === InspectionRequestOptions::STATUS_COMPLETED) {
+            $tenant = $inspectionRequest->tenant;
+
+            if ($tenant) {
+                app(WorkflowNotifier::class)->notify(
+                    $tenant,
+                    'inspection-completed:'.$inspectionRequest->getKey(),
+                    'Your inspection is complete',
+                    $inspectionRequest->outcome_type === 'inspected'
+                        ? 'Your inspection is complete. You can now continue to rent or purchase this property from your inspection detail.'
+                        : 'Your inspection outcome is ready to review.',
+                    route('tenant.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]),
+                    'inspection_update',
+                    'View next step',
+                );
+            }
+
+            return;
+        }
+
+        if ($status !== InspectionRequestOptions::STATUS_SCHEDULED) {
+            return;
+        }
+
+        $rescheduled = $fromStatus === InspectionRequestOptions::STATUS_SCHEDULED;
+
+        $tenant = $inspectionRequest->tenant;
+
+        if ($tenant) {
+            app(WorkflowNotifier::class)->notify(
+                $tenant,
+                'inspection-scheduled:'.$inspectionRequest->getKey().':'.$inspectionRequest->scheduled_at?->getTimestamp(),
+                $rescheduled ? 'Inspection schedule changed' : 'Inspection date proposed',
+                $inspectionRequest->scheduled_at
+                ? 'VerifyHomes proposed '.($rescheduled ? 'a new ' : 'an ').'inspection time for '.$inspectionRequest->property?->title.': '.$inspectionRequest->scheduled_at->format('M j, Y g:i A').'.'
+                : 'VerifyHomes updated your inspection schedule.',
+                route('tenant.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]),
+                'inspection_update',
+                'Review schedule',
+            );
+        }
     }
 
     public function render(): View
@@ -147,6 +242,23 @@ class Show extends Component
         $this->adminNotes = $this->inspectionRequest->admin_notes;
         $this->outcomeType = $this->inspectionRequest->outcome_type;
         $this->outcomeNotes = $this->inspectionRequest->outcome_notes;
+    }
+
+    protected function shouldShowScheduleEditor(InspectionRequest $inspectionRequest): bool
+    {
+        return $inspectionRequest->status === InspectionRequestOptions::STATUS_REQUESTED
+            && ($inspectionRequest->scheduled_at === null
+                || $inspectionRequest->schedule_response === 'reschedule_requested');
+    }
+
+    protected function bookingFeeHasBeenPaid(): bool
+    {
+        return $this->hasPaymentTransactionsTable()
+            && $this->inspectionRequest !== null
+            && PaymentTransaction::query()
+                ->where('inspection_request_id', $this->inspectionRequest->getKey())
+                ->where('status', 'paid')
+                ->exists();
     }
 
     public function formatMoney(float|int|string|null $amount, string $currency = 'NGN'): string

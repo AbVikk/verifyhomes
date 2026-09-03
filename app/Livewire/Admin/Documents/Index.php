@@ -122,7 +122,21 @@ class Index extends Component
     protected function paginatedDocumentsCollection(bool $landlordDocumentsAvailable, bool $propertyDocumentsAvailable): LengthAwarePaginator
     {
         $documents = $this->combinedDocumentsCollection($landlordDocumentsAvailable, $propertyDocumentsAvailable)
-            ->sortByDesc(fn ($document) => $document->uploaded_at?->timestamp ?? 0)
+            ->sort(function ($left, $right): int {
+                $priorities = [
+                    'pending' => 0,
+                    'rejected' => 1,
+                    'approved' => 2,
+                ];
+
+                $priorityComparison = ($priorities[$left->review_status] ?? 3) <=> ($priorities[$right->review_status] ?? 3);
+
+                if ($priorityComparison !== 0) {
+                    return $priorityComparison;
+                }
+
+                return ($right->uploaded_at?->timestamp ?? 0) <=> ($left->uploaded_at?->timestamp ?? 0);
+            })
             ->values();
 
         $perPage = 10;

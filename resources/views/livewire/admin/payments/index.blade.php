@@ -157,6 +157,15 @@
                                             @if ($this->workflowImpactSummary($transaction))
                                                 <p class="mt-2 text-slate-600">{{ $this->workflowImpactSummary($transaction) }}</p>
                                             @endif
+                                            @if ($this->landlordSettlementSummary($transaction))
+                                                <p class="mt-2 text-slate-600">{{ $this->landlordSettlementSummary($transaction) }}</p>
+                                            @endif
+                                            @if ($this->canRecordLandlordSettlement($transaction))
+                                                <button wire:click="markLandlordSettled({{ $transaction->id }})" wire:loading.attr="disabled" wire:target="markLandlordSettled" type="button" class="admin-inline-link mt-2">
+                                                    <span wire:loading.remove wire:target="markLandlordSettled">Record landlord payout</span>
+                                                    <span wire:loading wire:target="markLandlordSettled">Recording...</span>
+                                                </button>
+                                            @endif
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-500">
                                             <p>{{ $transaction->created_at->diffForHumans() }}</p>

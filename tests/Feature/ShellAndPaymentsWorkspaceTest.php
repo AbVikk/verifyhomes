@@ -363,7 +363,8 @@ class ShellAndPaymentsWorkspaceTest extends TestCase
         $this->actingAs($tenant)->get(route('tenant.payments.index', ['reference' => $transaction->reference]))
             ->assertOk()
             ->assertSee('Continue checkout')
-            ->assertSee('Checkout started. Finish the provider step to move this payment forward.');
+            ->assertSee('Your inspection booking fee is waiting for completion.')
+            ->assertDontSee('Checkout started. Finish the provider step to move this payment forward.');
 
         $this->actingAs($landlord)->get(route('landlord.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]))
             ->assertOk()

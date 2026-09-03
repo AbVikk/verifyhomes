@@ -83,6 +83,14 @@
                                 </a>
                             </div>
                         @endif
+
+                        @if (filled($property->property_terms))
+                            <div class="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                                <h3 class="text-lg font-semibold text-gray-900">Property Terms &amp; Conditions</h3>
+                                <p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-700">{{ $property->property_terms }}</p>
+                                <p class="mt-3 text-xs text-gray-600">These property-specific conditions are separate from VerifyHomes platform terms.</p>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>

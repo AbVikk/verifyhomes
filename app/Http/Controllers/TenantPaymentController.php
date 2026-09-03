@@ -9,6 +9,7 @@ use App\Support\PaymentCheckoutService;
 use App\Support\InspectionRequestOptions;
 use App\Support\Payments\PaymentGatewayManager;
 use App\Support\TermsGateService;
+use App\Support\RentalEligibility;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
 
@@ -41,6 +42,14 @@ class TenantPaymentController extends Controller
             return redirect()
                 ->route('tenant.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()])
                 ->with('status', 'Payments are not available yet in this environment.');
+        }
+
+        if (! $inspectionRequest->scheduleIsAcceptedOrLegacy()) {
+            return redirect()
+                ->route('tenant.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()])
+                ->withErrors([
+                    'inspection_request' => 'Accept the proposed inspection schedule before starting booking-fee checkout.',
+                ]);
         }
 
         if (! $this->payerHasValidEmail()) {
@@ -141,6 +150,16 @@ class TenantPaymentController extends Controller
                 ->route('properties.show', $property)
                 ->withErrors([
                     'property' => 'This listing has no available rent units right now.',
+                ]);
+        }
+
+        $rentalEligibility = app(RentalEligibility::class)->forTenant(auth()->user());
+
+        if (! $rentalEligibility['allowed']) {
+            return redirect()
+                ->route('properties.show', $property)
+                ->withErrors([
+                    'property' => $rentalEligibility['reason'],
                 ]);
         }
 

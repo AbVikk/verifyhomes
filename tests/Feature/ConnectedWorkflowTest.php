@@ -275,9 +275,12 @@ class ConnectedWorkflowTest extends TestCase
             ->get(route('tenant.payments.index', ['reference' => $transaction->reference]))
             ->assertOk()
             ->assertSee('Your payment transactions')
-            ->assertSee("Platform fee: {$platformFee} (20.00%). Landlord net snapshot: {$landlordNet}.")
+            ->assertSee('Rent Payment')
+            ->assertSee('Paid')
+            ->assertSee('View stay')
+            ->assertDontSee("Platform fee: {$platformFee} (20.00%). Landlord net snapshot: {$landlordNet}.")
             ->assertDontSee($brokenNaira)
-            ->assertSee('Rent payment confirmed. Listing availability has been reduced by 1 unit.');
+            ->assertDontSee('Rent payment confirmed. Listing availability has been reduced by 1 unit.');
 
         $this->actingAs($landlord)
             ->get(route('landlord.payments.index', ['reference' => $transaction->reference]))

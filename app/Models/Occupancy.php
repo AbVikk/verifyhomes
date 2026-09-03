@@ -70,6 +70,11 @@ class Occupancy extends Model
         return $query->whereIn('status', ['active', 'move_out_pending']);
     }
 
+    public function scopeUpcoming(Builder $query): Builder
+    {
+        return $query->where('status', 'upcoming');
+    }
+
     public function paymentCycleMonths(): int
     {
         return max(1, (int) ($this->payment_cycle_months ?: 12));

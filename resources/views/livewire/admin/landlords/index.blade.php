@@ -44,14 +44,17 @@
                 <div class="admin-bulk-bar">
                     <div class="flex flex-wrap items-center gap-3">
                         <span class="admin-bulk-count">{{ count($selectedLandlordIds) }} selected</span>
-                        <x-admin.button wire:click="bulkApprove" variant="success" size="sm" :disabled="count($selectedLandlordIds) === 0">
-                            Mark Approved
+                        <x-admin.button wire:click="bulkApprove" wire:loading.attr="disabled" wire:target="bulkApprove,bulkReject,bulkMarkUnderReview" variant="success" size="sm" :disabled="count($selectedLandlordIds) === 0">
+                            <span wire:loading.remove wire:target="bulkApprove,bulkReject,bulkMarkUnderReview">Mark Approved</span>
+                            <span wire:loading wire:target="bulkApprove,bulkReject,bulkMarkUnderReview">Updating...</span>
                         </x-admin.button>
-                        <x-admin.button wire:click="bulkReject" variant="danger" size="sm" :disabled="count($selectedLandlordIds) === 0">
-                            Mark Rejected
+                        <x-admin.button wire:click="bulkReject" wire:loading.attr="disabled" wire:target="bulkApprove,bulkReject,bulkMarkUnderReview" variant="danger" size="sm" :disabled="count($selectedLandlordIds) === 0">
+                            <span wire:loading.remove wire:target="bulkApprove,bulkReject,bulkMarkUnderReview">Mark Rejected</span>
+                            <span wire:loading wire:target="bulkApprove,bulkReject,bulkMarkUnderReview">Updating...</span>
                         </x-admin.button>
-                        <x-admin.button wire:click="bulkMarkUnderReview" variant="secondary" size="sm" :disabled="count($selectedLandlordIds) === 0">
-                            Mark Under Review
+                        <x-admin.button wire:click="bulkMarkUnderReview" wire:loading.attr="disabled" wire:target="bulkApprove,bulkReject,bulkMarkUnderReview" variant="secondary" size="sm" :disabled="count($selectedLandlordIds) === 0">
+                            <span wire:loading.remove wire:target="bulkApprove,bulkReject,bulkMarkUnderReview">Mark Under Review</span>
+                            <span wire:loading wire:target="bulkApprove,bulkReject,bulkMarkUnderReview">Updating...</span>
                         </x-admin.button>
                     </div>
 

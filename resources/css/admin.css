@@ -838,4 +838,53 @@ body {
     .admin-tone-amber {
         @apply text-amber-500;
     }
+
+    @media (max-width: 639px) {
+        .admin-page {
+            @apply py-6;
+        }
+
+        .admin-page-inner {
+            @apply space-y-4 px-3;
+        }
+
+        .admin-surface-content {
+            @apply p-4;
+        }
+
+        .admin-button,
+        .admin-action-link {
+            @apply min-h-11;
+        }
+
+        .admin-action-link {
+            @apply items-center;
+        }
+
+        .admin-modal-header,
+        .admin-modal-body,
+        .admin-modal-footer {
+            @apply px-4 py-4;
+        }
+
+        .admin-modal-body {
+            @apply max-h-[65vh];
+        }
+
+        .admin-topbar-inner {
+            @apply px-3;
+        }
+
+        .admin-topbar-title,
+        .admin-topbar-kicker,
+        .admin-page dd,
+        .admin-page .font-mono {
+            overflow-wrap: anywhere;
+        }
+
+        .admin-data-box,
+        .admin-empty-state {
+            @apply p-4;
+        }
+    }
 }

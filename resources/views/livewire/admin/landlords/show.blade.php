@@ -40,7 +40,7 @@
                         <div class="space-y-4">
                             <div>
                                 <h3 class="text-lg font-semibold text-slate-950">Verification documents</h3>
-                                <p class="mt-1 text-sm text-slate-600">Use the document list below as the source for review.</p>
+                                <p class="mt-1 text-sm text-slate-600">Only this landlord's submitted verification documents are shown here.</p>
                             </div>
 
                             <div class="space-y-3">
@@ -50,10 +50,16 @@
                                             <p class="font-medium text-slate-900">{{ str($document->document_type)->headline() }}</p>
                                             <p class="text-sm text-slate-600">{{ $document->original_name }}</p>
                                             <p class="mt-1 text-xs text-slate-500">Status: {{ str($document->review_status)->headline() }}</p>
+                                            <p class="mt-1 text-xs text-slate-500">Uploaded: {{ $document->created_at?->format('M j, Y') ?: 'Not available' }}</p>
                                         </div>
-                                        <x-admin.button tag="a" variant="secondary" size="sm" href="{{ route('admin.landlords.documents.download', [$landlordProfile, $document]) }}">
-                                            Download
-                                        </x-admin.button>
+                                        <div class="flex flex-wrap justify-end gap-2">
+                                            @if ($document->review_status === 'pending')
+                                                <x-admin.action-link href="{{ route('admin.documents.index', ['sourceFilter' => 'landlord', 'statusFilter' => 'pending', 'search' => $document->original_name]) }}">Review</x-admin.action-link>
+                                            @endif
+                                            <x-admin.button tag="a" variant="secondary" size="sm" href="{{ route('admin.landlords.documents.download', [$landlordProfile, $document]) }}">
+                                                Download
+                                            </x-admin.button>
+                                        </div>
                                     </div>
                                 @empty
                                     <x-admin.empty-state title="No landlord verification documents uploaded yet." />
@@ -78,10 +84,22 @@
                             </div>
 
                             <div class="flex flex-wrap gap-3">
-                                <x-admin.button wire:click="changeStatus('under_review')" variant="secondary">Mark Under Review</x-admin.button>
-                                <x-admin.button wire:click="changeStatus('approved')" variant="success">Approve</x-admin.button>
-                                <x-admin.button wire:click="changeStatus('rejected')" variant="danger">Reject</x-admin.button>
-                                <x-admin.button wire:click="changeStatus('suspended')" variant="warning">Suspend</x-admin.button>
+                                <x-admin.button wire:click="changeStatus('under_review')" wire:loading.attr="disabled" wire:target="changeStatus" variant="secondary">
+                                    <span wire:loading.remove wire:target="changeStatus">Mark Under Review</span>
+                                    <span wire:loading wire:target="changeStatus">Updating...</span>
+                                </x-admin.button>
+                                <x-admin.button wire:click="changeStatus('approved')" wire:loading.attr="disabled" wire:target="changeStatus" variant="success">
+                                    <span wire:loading.remove wire:target="changeStatus">Approve</span>
+                                    <span wire:loading wire:target="changeStatus">Updating...</span>
+                                </x-admin.button>
+                                <x-admin.button wire:click="changeStatus('rejected')" wire:loading.attr="disabled" wire:target="changeStatus" variant="danger">
+                                    <span wire:loading.remove wire:target="changeStatus">Reject</span>
+                                    <span wire:loading wire:target="changeStatus">Updating...</span>
+                                </x-admin.button>
+                                <x-admin.button wire:click="changeStatus('suspended')" wire:loading.attr="disabled" wire:target="changeStatus" variant="warning">
+                                    <span wire:loading.remove wire:target="changeStatus">Suspend</span>
+                                    <span wire:loading wire:target="changeStatus">Updating...</span>
+                                </x-admin.button>
                             </div>
                         </div>
                     </x-admin.panel>

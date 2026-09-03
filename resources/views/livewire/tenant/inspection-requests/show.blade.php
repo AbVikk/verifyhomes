@@ -37,10 +37,34 @@
                                 <div><dt class="font-medium text-slate-500">Title</dt><dd class="mt-1">{{ $inspectionRequest->property?->title }}</dd></div>
                                 <div><dt class="font-medium text-slate-500">Location</dt><dd class="mt-1">{{ $inspectionRequest->property?->area }}, {{ $inspectionRequest->property?->city }}</dd></div>
                                 <div><dt class="font-medium text-slate-500">Request status</dt><dd class="mt-1">{{ str($inspectionRequest->status)->headline() }}</dd></div>
-                                <div><dt class="font-medium text-slate-500">Schedule</dt><dd class="mt-1">{{ $inspectionRequest->scheduled_at?->format('M j, Y g:i A') ?: 'Waiting for scheduling' }}</dd></div>
+                                <div><dt class="font-medium text-slate-500">Schedule</dt><dd class="mt-1">{{ $inspectionRequest->scheduled_at?->format('M j, Y g:i A') ?: 'Waiting for inspection schedule' }}</dd></div>
                             </dl>
                         </div>
                     </x-admin.panel>
+
+                    @if ($inspectionRequest->scheduleNeedsTenantResponse())
+                        <x-admin.panel>
+                            <div class="space-y-4">
+                                <div>
+                                    <p class="admin-eyebrow">Your response needed</p>
+                                    <h3 class="admin-panel-title">Inspection date proposed</h3>
+                                    <p class="admin-panel-copy">VerifyHomes proposed {{ $inspectionRequest->scheduled_at?->format('l, M j, Y \a\t g:i A') }} for {{ $inspectionRequest->property?->title }}. Confirm this time before paying the booking fee.</p>
+                                </div>
+
+                                <div class="flex flex-wrap gap-3">
+                                    <button wire:click="acceptSchedule" wire:loading.attr="disabled" wire:target="acceptSchedule" type="button" class="admin-button admin-button-primary">
+                                        <span wire:loading.remove wire:target="acceptSchedule">Accept schedule</span>
+                                        <span wire:loading wire:target="acceptSchedule">Accepting...</span>
+                                    </button>
+                                    <button type="button" x-data x-on:click="$dispatch('open-modal', 'request-another-date')" class="admin-button admin-button-secondary">Request another date</button>
+                                    <button wire:click="cancelRequest" wire:loading.attr="disabled" wire:target="cancelRequest" type="button" class="admin-button admin-button-secondary">
+                                        <span wire:loading.remove wire:target="cancelRequest">Cancel request</span>
+                                        <span wire:loading wire:target="cancelRequest">Cancelling...</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </x-admin.panel>
+                    @endif
 
                     <x-admin.panel>
                         <div class="space-y-4">
@@ -77,7 +101,7 @@
                                 </div>
                                 <div>
                                     <dt class="font-medium text-slate-500">Schedule</dt>
-                                    <dd class="mt-1">{{ $inspectionRequest->scheduled_at ? 'Scheduled' : 'Waiting for scheduling' }}</dd>
+                                    <dd class="mt-1">{{ $inspectionRequest->scheduled_at ? 'Scheduled' : 'Waiting for inspection schedule' }}</dd>
                                 </div>
                                 <div>
                                     <dt class="font-medium text-slate-500">Next step</dt>
@@ -86,8 +110,10 @@
                                             Return to the provider checkout and finish the payment step.
                                         @elseif ($latestPaymentTransaction && $latestPaymentTransaction->status === 'pending')
                                             We have your checkout return and we are waiting for final confirmation.
+                                        @elseif ($latestPaymentTransaction && $latestPaymentTransaction->status === 'paid')
+                                            Booking fee paid. Your inspection is booked; no action is needed right now.
                                         @elseif ($inspectionRequest->status === 'requested' && ! $inspectionRequest->scheduled_at)
-                                            We are scheduling your visit.
+                                            VerifyHomes is arranging a suitable inspection date. We'll notify you when a schedule is ready for your review.
                                         @elseif ($inspectionRequest->status === 'scheduled')
                                             Your visit is scheduled.
                                         @elseif ($inspectionRequest->status === 'completed')
@@ -119,12 +145,51 @@
                         </div>
                     </x-admin.panel>
 
+                    @if ($showsOutcome && $inspectionRequest->outcome_type === 'inspected')
+                        <x-admin.panel>
+                            <div class="space-y-4">
+                                <div>
+                                    <p class="admin-eyebrow">Next step</p>
+                                    <h3 class="admin-panel-title">Inspection completed</h3>
+                                    <p class="admin-panel-copy">You've completed your inspection. If you're satisfied with this property, you can continue to secure it.</p>
+                                </div>
+
+                                @if ($inspectionRequest->property?->available_units <= 0)
+                                    <p class="text-sm text-slate-700">This property is no longer available, so payment cannot continue.</p>
+                                @elseif ($inspectionRequest->property?->listing_intent === 'for_rent')
+                                    @if ($latestRentPaymentTransaction?->status === 'paid')
+                                        <p class="font-medium text-slate-900">Property secured</p>
+                                        <a href="{{ route('tenant.occupancy.index') }}" class="admin-button admin-button-primary w-full sm:w-auto">View My Stay</a>
+                                    @else
+                                        <p class="text-sm text-slate-700">Your inspection booking fee was paid separately and is not deducted from the property amount.</p>
+                                        <a href="{{ route('properties.show', $inspectionRequest->property) }}" class="admin-button admin-button-primary w-full sm:w-auto">Continue to rent payment</a>
+                                    @endif
+                                @elseif ($inspectionRequest->property?->listing_intent === 'for_sale')
+                                    @if ($latestPurchasePaymentTransaction?->status === 'paid' && $purchaseReceipt)
+                                        <p class="font-medium text-slate-900">Purchase confirmed</p>
+                                        <a href="{{ route('tenant.purchases.show', $purchaseReceipt) }}" class="admin-button admin-button-primary w-full sm:w-auto">View purchase receipt</a>
+                                    @else
+                                        <p class="text-sm text-slate-700">Your inspection booking fee was paid separately and is not deducted from the purchase amount.</p>
+                                        <a href="{{ route('properties.show', $inspectionRequest->property) }}" class="admin-button admin-button-primary w-full sm:w-auto">Continue to purchase</a>
+                                    @endif
+                                @else
+                                    <p class="text-sm text-slate-700">Your inspection is complete. VerifyHomes will guide the lease coordination from here.</p>
+                                    <a href="{{ route('properties.show', $inspectionRequest->property) }}" class="admin-button admin-button-secondary w-full sm:w-auto">View lease next step</a>
+                                @endif
+                            </div>
+                        </x-admin.panel>
+                    @endif
+
                     <x-admin.panel>
                         <div class="space-y-4">
                             <div>
                                 <p class="admin-eyebrow">Payment</p>
                                 <h3 class="admin-panel-title">Booking fee</h3>
-                                <p class="admin-panel-copy">Pay the booking fee when you are ready.</p>
+                                <p class="admin-panel-copy">
+                                    {{ $inspectionRequest->scheduleIsAcceptedOrLegacy() || $hasPaidInspectionFee
+                                        ? 'Review the booking details for this inspection.'
+                                        : 'Booking-fee checkout unlocks after you accept an inspection schedule proposed by VerifyHomes.' }}
+                                </p>
                             </div>
 
                             @if (! $paymentTransactionsAvailable)
@@ -159,7 +224,7 @@
                                 </dl>
 
                                 <div class="flex flex-wrap gap-3">
-                                    @if (! $hasPaidInspectionFee)
+                                    @if (! $hasPaidInspectionFee && $inspectionRequest->scheduleIsAcceptedOrLegacy())
                                         <form method="POST" action="{{ route('tenant.inspection-requests.payments.store', $inspectionRequest) }}" class="space-y-4" data-processing-form>
                                             @csrf
 
@@ -210,6 +275,14 @@
                                                 <span data-button-processing class="hidden">Processing...</span>
                                             </button>
                                         </form>
+                                    @endif
+
+                                    @if (! $hasPaidInspectionFee && ! $inspectionRequest->scheduleIsAcceptedOrLegacy())
+                                        <p class="admin-help">
+                                            {{ $inspectionRequest->scheduleNeedsTenantResponse()
+                                                ? 'Accept the proposed inspection schedule before booking-fee checkout becomes available.'
+                                                : "Waiting for inspection schedule. VerifyHomes is arranging a suitable inspection date. We'll notify you when a schedule is ready for your review." }}
+                                        </p>
                                     @endif
 
                                     <a href="{{ route('tenant.payments.index') }}" class="admin-button admin-button-secondary">Payment history</a>
@@ -269,6 +342,29 @@
                 <div class="admin-modal-footer">
                     <p class="text-sm text-slate-600">Accept the checkbox here, then close the modal and continue with checkout.</p>
                     <button type="button" x-data x-on:click="$dispatch('close-modal', 'inspection-payment-terms')" class="admin-button admin-button-primary">Close</button>
+                </div>
+            </div>
+        </x-modal>
+
+        <x-modal name="request-another-date" maxWidth="lg">
+            <div class="admin-modal-panel">
+                <div class="admin-modal-header">
+                    <h3 class="text-lg font-semibold text-slate-950">Request another inspection date</h3>
+                    <p class="mt-1 text-sm text-slate-600">Tell VerifyHomes what would work better. Your booking fee is not charged by this request.</p>
+                </div>
+                <div class="admin-modal-body space-y-4">
+                    <div>
+                        <label for="scheduleResponseNotes" class="admin-label">Preferred alternative</label>
+                        <textarea wire:model.defer="scheduleResponseNotes" id="scheduleResponseNotes" rows="4" class="admin-control admin-control-textarea" placeholder="Example: Saturday morning or after 4pm on Tuesday."></textarea>
+                        @error('scheduleResponseNotes') <p class="admin-error">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <div class="admin-modal-footer flex flex-wrap gap-3">
+                    <button wire:click="requestAnotherDate" wire:loading.attr="disabled" wire:target="requestAnotherDate" type="button" class="admin-button admin-button-primary">
+                        <span wire:loading.remove wire:target="requestAnotherDate">Send request</span>
+                        <span wire:loading wire:target="requestAnotherDate">Sending...</span>
+                    </button>
+                    <button type="button" x-data x-on:click="$dispatch('close-modal', 'request-another-date')" class="admin-button admin-button-secondary">Cancel</button>
                 </div>
             </div>
         </x-modal>

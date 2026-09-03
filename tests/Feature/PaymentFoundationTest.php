@@ -45,9 +45,9 @@ class PaymentFoundationTest extends TestCase
         $this->assertSame('pending', $transaction->status);
         $this->assertSame('inspection_booking_fee', $transaction->transaction_type);
         $this->assertSame('25000.00', $transaction->gross_amount);
-        $this->assertSame('12.50', $transaction->platform_fee_percentage);
-        $this->assertSame('3125.00', $transaction->platform_fee_amount);
-        $this->assertSame('21875.00', $transaction->net_amount);
+        $this->assertSame('0.00', $transaction->platform_fee_percentage);
+        $this->assertSame('25000.00', $transaction->platform_fee_amount);
+        $this->assertSame('0.00', $transaction->net_amount);
         $this->assertNotEmpty($transaction->reference);
     }
 
@@ -256,10 +256,9 @@ class PaymentFoundationTest extends TestCase
         $paymentsResponse->assertSee('Your payment transactions');
         $paymentsResponse->assertSee($transaction->reference);
         $paymentsResponse->assertSee('Inspection Booking Fee');
-        $paymentsResponse->assertSee('Stub Gateway');
-        $paymentsResponse->assertSee('Checkout started. Finish the provider step to move this payment forward.');
+        $paymentsResponse->assertSee('View inspection');
         $paymentsResponse->assertSee('5,000.00');
-        $paymentsResponse->assertSee('Open request');
+        $paymentsResponse->assertDontSee('Checkout started. Finish the provider step to move this payment forward.');
     }
 
     public function test_paystack_test_mode_checkout_and_callback_verification_flow_work_cleanly(): void
@@ -585,8 +584,9 @@ class PaymentFoundationTest extends TestCase
 
         $paymentsResponse->assertOk();
         $paymentsResponse->assertSee('Rent Payment');
-        $paymentsResponse->assertSee('Rent payment for this property listing.');
-        $paymentsResponse->assertSee('Rent checkout started. Finish the provider step to complete payment.');
+        $paymentsResponse->assertSee('Continue checkout');
+        $paymentsResponse->assertDontSee('Rent payment for this property listing.');
+        $paymentsResponse->assertDontSee('Rent checkout started. Finish the provider step to complete payment.');
     }
 
     public function test_paid_state_appears_after_successful_rent_payment(): void
@@ -761,7 +761,8 @@ class PaymentFoundationTest extends TestCase
         $inspectionRequest = InspectionRequest::create(array_merge([
             'property_id' => ($property ?? $this->createProperty())->id,
             'tenant_id' => $tenant->id,
-            'status' => 'requested',
+            'status' => 'scheduled',
+            'scheduled_at' => now()->addDay(),
             'preferred_date' => now()->addDays(2)->toDateString(),
             'preferred_time_note' => 'Afternoon works best',
             'message' => 'Please confirm access.',

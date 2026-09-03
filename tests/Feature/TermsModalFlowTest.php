@@ -31,6 +31,8 @@ class TermsModalFlowTest extends TestCase
         $response->assertSee('data-terms-gate-hidden-input', false);
         $response->assertSee('data-terms-gate-modal-content="inspection-request:property:'.$property->id.'"', false);
         $response->assertSee('data-terms-gate-modal-warning', false);
+        $response->assertSee('data-terms-gate-guidance', false);
+        $response->assertSee('data-terms-gate-guidance-message', false);
         $this->assertSame(1, substr_count($response->getContent(), 'data-terms-gate-checkbox'));
     }
 
@@ -202,7 +204,9 @@ class TermsModalFlowTest extends TestCase
         $inspectionRequest = InspectionRequest::create([
             'property_id' => $property->id,
             'tenant_id' => $tenant->id,
-            'status' => 'requested',
+            'status' => 'scheduled',
+            'scheduled_at' => now()->addDay(),
+            'schedule_response' => 'accepted',
             'preferred_date' => now()->addDays(2)->toDateString(),
             'preferred_time_note' => 'Morning',
             'message' => 'Please confirm access.',

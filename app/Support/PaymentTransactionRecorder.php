@@ -16,10 +16,14 @@ class PaymentTransactionRecorder
         $percentage = Arr::has($attributes, 'platform_fee_percentage')
             ? (float) Arr::get($attributes, 'platform_fee_percentage')
             : static::resolvePlatformFeePercentage($attributes);
-        $amounts = PaymentTransaction::buildAmounts(
-            $grossAmount,
-            $percentage,
-        );
+        $amounts = Arr::get($attributes, 'transaction_type') === 'inspection_booking_fee'
+            ? [
+                'gross_amount' => round($grossAmount, 2),
+                'platform_fee_percentage' => 0.0,
+                'platform_fee_amount' => round($grossAmount, 2),
+                'net_amount' => 0.0,
+            ]
+            : PaymentTransaction::buildAmounts($grossAmount, $percentage);
         $metadata = static::metadataWithPricingSnapshot($attributes, $amounts);
 
         return PaymentTransaction::create([

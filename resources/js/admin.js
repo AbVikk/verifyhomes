@@ -268,7 +268,11 @@ const initializeProcessingForms = () => {
 
         form.dataset.processingBound = 'true';
 
-        form.addEventListener('submit', () => {
+        form.addEventListener('submit', (event) => {
+            if (event.defaultPrevented) {
+                return;
+            }
+
             const button = form.querySelector('[data-processing-button]');
 
             if (!button || button.disabled) {
