@@ -32,7 +32,7 @@ body {
     }
 
     .admin-sidebar {
-        width: var(--admin-sidebar-width);
+        width: min(85vw, 20rem);
         @apply transition-[width] duration-200 ease-out;
     }
 
@@ -179,66 +179,69 @@ body {
         @apply min-h-full;
     }
 
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-main {
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar {
-        width: var(--admin-sidebar-collapsed-width);
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-brand {
-        @apply justify-center;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-logo {
-        @apply h-10;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] [data-admin-sidebar-text] {
-        @apply hidden;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] [data-admin-sidebar-icon-only] {
-        @apply inline-flex;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-summary {
-        @apply hidden;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-link {
-        @apply justify-center px-2;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-link-icon {
-        @apply h-11 w-11;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account {
-        @apply px-2 py-3;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-avatar {
-        @apply mx-auto;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions {
-        @apply mt-3 flex-col;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions a,
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions button {
-        @apply px-2;
-    }
-
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions a,
-    .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions form {
-        @apply flex-auto;
-    }
-
     @screen lg {
+        .admin-sidebar {
+            width: var(--admin-sidebar-width);
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar {
+            width: var(--admin-sidebar-collapsed-width);
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-brand {
+            @apply justify-center;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-logo {
+            @apply h-10;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] [data-admin-sidebar-text] {
+            @apply hidden;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] [data-admin-sidebar-icon-only] {
+            @apply inline-flex;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-summary {
+            @apply hidden;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-link {
+            @apply justify-center px-2;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-link-icon {
+            @apply h-11 w-11;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account {
+            @apply px-2 py-3;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-avatar {
+            @apply mx-auto;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions {
+            @apply mt-3 flex-col;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions a,
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions button {
+            @apply px-2;
+        }
+
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions a,
+        .admin-shell[data-admin-sidebar-collapsed='true'] .admin-sidebar-account-actions form {
+            @apply flex-auto;
+        }
+
         .admin-main {
             margin-left: calc(var(--admin-sidebar-width) + var(--admin-shell-gutter));
+            width: calc(100% - var(--admin-sidebar-width) - var(--admin-shell-gutter));
+            max-width: calc(100% - var(--admin-sidebar-width) - var(--admin-shell-gutter));
         }
 
         .admin-topbar {
@@ -247,11 +250,30 @@ body {
 
         .admin-shell[data-admin-sidebar-collapsed='true'] .admin-main {
             margin-left: calc(var(--admin-sidebar-collapsed-width) + var(--admin-shell-gutter));
+            width: calc(100% - var(--admin-sidebar-collapsed-width) - var(--admin-shell-gutter));
+            max-width: calc(100% - var(--admin-sidebar-collapsed-width) - var(--admin-shell-gutter));
         }
 
         .admin-shell[data-admin-sidebar-collapsed='true'] .admin-topbar {
             left: calc(var(--admin-sidebar-collapsed-width) + var(--admin-shell-gutter));
         }
+    }
+
+    @media (max-width: 1023px) {
+        .admin-main {
+            margin-left: 0;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .admin-topbar {
+            left: 0;
+            right: 0;
+        }
+    }
+
+    body.admin-mobile-drawer-open {
+        overflow: hidden;
     }
 
     .admin-deep-text {
@@ -348,6 +370,54 @@ body {
 
     .admin-flash-success {
         @apply admin-alert admin-alert-success;
+    }
+
+    .admin-workflow-state {
+        border-radius: var(--admin-subsurface-radius);
+        @apply border p-5 shadow-[0_1px_0_rgba(255,255,255,0.82)_inset,0_14px_28px_rgba(15,23,42,0.045)];
+    }
+
+    .admin-workflow-state-label {
+        @apply text-xs font-semibold uppercase tracking-[0.16em];
+    }
+
+    .admin-workflow-state-title {
+        @apply mt-1 text-lg font-semibold text-slate-950;
+    }
+
+    .admin-workflow-state-copy {
+        @apply mt-2 text-sm leading-6;
+    }
+
+    .admin-workflow-state-success,
+    .admin-workflow-state-completed {
+        border-color: rgb(110 231 183 / 0.95);
+        background-color: rgb(236 253 245 / 0.82);
+        @apply text-emerald-950;
+    }
+
+    .admin-workflow-state-action {
+        border-color: rgb(125 211 252 / 0.95);
+        background-color: rgb(240 249 255 / 0.9);
+        @apply text-sky-950;
+    }
+
+    .admin-workflow-state-waiting,
+    .admin-workflow-state-info {
+        border-color: rgb(203 213 225 / 0.95);
+        background-color: rgb(248 250 252 / 0.9);
+        @apply text-slate-800;
+    }
+
+    .admin-workflow-state-warning,
+    .admin-workflow-state-blocked {
+        border-color: rgb(252 211 77 / 0.95);
+        background-color: rgb(255 251 235 / 0.88);
+        @apply text-amber-950;
+    }
+
+    .admin-workflow-state-action-link {
+        @apply mt-4 inline-flex text-sm font-semibold text-slate-950 underline decoration-slate-400 underline-offset-4 transition hover:decoration-slate-950;
     }
 
     .admin-label {
