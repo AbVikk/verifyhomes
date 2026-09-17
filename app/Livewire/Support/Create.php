@@ -15,6 +15,8 @@ use App\Models\User;
 use App\Support\WorkflowNotifier;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -59,64 +61,59 @@ class Create extends Component
         ]);
 
         $context = $this->authorizedContext($user);
+        $attachmentMetadata = $this->attachmentMetadata();
+        $storedPath = null;
 
-        DB::transaction(function () use ($context, $user): void {
-            $supportRequest = SupportRequest::create([
-                'user_id' => $user->id,
-                'role_snapshot' => $user->isLandlord() ? 'landlord' : 'tenant',
-                'category' => $this->category,
-                'subject' => $this->subject,
-                'description' => $this->description,
-                'status' => 'open',
-                ...$context,
-            ]);
-
-            $message = $supportRequest->messages()->create([
-                'user_id' => $user->id,
-                'sender_type' => $supportRequest->role_snapshot,
-                'body' => $this->description,
-                'is_internal' => false,
-            ]);
-
-            if ($this->attachment) {
-                $path = $this->attachment->store('support-requests/'.$supportRequest->id, 'local');
-
-                SupportRequestAttachment::create([
-                    'support_request_id' => $supportRequest->id,
-                    'support_request_message_id' => $message->id,
-                    'uploaded_by' => $user->id,
-                    'original_name' => $this->attachment->getClientOriginalName(),
-                    'file_path' => $path,
-                    'mime_type' => $this->attachment->getMimeType() ?? 'application/octet-stream',
-                    'file_size' => $this->attachment->getSize(),
+        try {
+            $supportRequest = DB::transaction(function () use ($context, $user, $attachmentMetadata, &$storedPath): SupportRequest {
+                $supportRequest = SupportRequest::create([
+                    'user_id' => $user->id,
+                    'role_snapshot' => $user->isLandlord() ? 'landlord' : 'tenant',
+                    'category' => $this->category,
+                    'subject' => $this->subject,
+                    'description' => $this->description,
+                    'status' => 'open',
+                    ...$context,
                 ]);
+
+                $message = $supportRequest->messages()->create([
+                    'user_id' => $user->id,
+                    'sender_type' => $supportRequest->role_snapshot,
+                    'body' => $this->description,
+                    'is_internal' => false,
+                ]);
+
+                if ($attachmentMetadata) {
+                    $storedPath = $this->attachment->store('support-requests/'.$supportRequest->id, 'local');
+                    SupportRequestAttachment::create([
+                        'support_request_id' => $supportRequest->id,
+                        'support_request_message_id' => $message->id,
+                        'uploaded_by' => $user->id,
+                        'original_name' => $attachmentMetadata['original_name'],
+                        'file_path' => $storedPath,
+                        'mime_type' => $attachmentMetadata['mime_type'],
+                        'file_size' => $attachmentMetadata['file_size'],
+                    ]);
+                }
+
+                return $supportRequest;
+            });
+        } catch (\Throwable $throwable) {
+            if ($storedPath) {
+                Storage::disk('local')->delete($storedPath);
             }
 
-            foreach (User::role('admin')->get() as $admin) {
-                app(WorkflowNotifier::class)->notify(
-                    $admin,
-                    'support-request:'.$supportRequest->reference,
-                    'New support request '.$supportRequest->reference,
-                    $user->name.' submitted a '.$supportRequest->categoryLabel().' request.',
-                    $this->supportRoute($user, 'show', $supportRequest),
-                    'support',
-                    'View request',
-                );
-            }
+            throw $throwable;
+        }
 
-            app(WorkflowNotifier::class)->notify(
-                $user,
-                'support-request-confirmation:'.$supportRequest->reference,
-                'Your support request has been received',
-                $supportRequest->reference.' - '.$supportRequest->subject,
-                $this->supportRoute($user, 'show', $supportRequest),
-                'support',
-                'View request',
-            );
+        foreach (User::role('admin')->get() as $admin) {
+            $this->notifySafely($admin, 'support-request:'.$supportRequest->reference, 'New support request '.$supportRequest->reference, $user->name.' submitted a '.$supportRequest->categoryLabel().' request.', $this->supportRoute($user, 'show', $supportRequest), 'View request');
+        }
 
-            session()->flash('status', 'Support request '.$supportRequest->reference.' has been received.');
-            $this->redirect($this->supportRoute($user, 'show', $supportRequest), navigate: true);
-        });
+        $this->notifySafely($user, 'support-request-confirmation:'.$supportRequest->reference, 'Your support request has been received', $supportRequest->reference.' - '.$supportRequest->subject, $this->supportRoute($user, 'show', $supportRequest), 'View request');
+
+        session()->flash('status', 'Support request submitted successfully.');
+        $this->redirect($this->supportRoute($user, 'show', $supportRequest), navigate: true);
     }
 
     public function render(): View
@@ -227,5 +224,36 @@ class Create extends Component
     private function supportRoute(User $user, string $name, SupportRequest $supportRequest): string
     {
         return route(($user->isLandlord() ? 'landlord' : 'tenant').'.support.'.$name, $supportRequest);
+    }
+
+    /** @return array{original_name: string, mime_type: string, file_size: int}|null */
+    private function attachmentMetadata(): ?array
+    {
+        if (! $this->attachment) {
+            return null;
+        }
+
+        try {
+            return [
+                'original_name' => $this->attachment->getClientOriginalName(),
+                'mime_type' => $this->attachment->getMimeType() ?? 'application/octet-stream',
+                'file_size' => $this->attachment->getSize(),
+            ];
+        } catch (\Throwable) {
+            throw ValidationException::withMessages(['attachment' => 'The selected attachment is no longer available. Choose it again.']);
+        }
+    }
+
+    private function notifySafely(User $recipient, string $eventKey, string $title, string $body, string $link, string $actionLabel): void
+    {
+        try {
+            app(WorkflowNotifier::class)->notify($recipient, $eventKey, $title, $body, $link, 'support', $actionLabel);
+        } catch (\Throwable $throwable) {
+            Log::warning('Support request notification could not be created after submission.', [
+                'event_key' => $eventKey,
+                'recipient_id' => $recipient->id,
+                'exception' => $throwable::class,
+            ]);
+        }
     }
 }

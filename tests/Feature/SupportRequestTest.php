@@ -16,6 +16,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -30,7 +31,8 @@ class SupportRequestTest extends TestCase
 
         Livewire::actingAs($tenant)->test(Create::class)
             ->set('category', 'payment')->set('subject', 'Payment question')->set('description', 'I need help with a payment receipt.')
-            ->call('submit');
+            ->call('submit')
+            ->assertRedirect(route('tenant.support.show', SupportRequest::firstOrFail()));
 
         $request = SupportRequest::firstOrFail();
         $this->assertSame($tenant->id, $request->user_id);
@@ -48,7 +50,7 @@ class SupportRequestTest extends TestCase
         Livewire::actingAs($landlord)->test(Create::class)
             ->set('category', 'landlord_payout')->set('subject', 'Payout question')->set('description', 'Please help me understand this payout.')
             ->set('propertyId', $context['property']->id)->set('paymentTransactionId', $context['payment']->id)
-            ->call('submit')->assertHasNoErrors();
+            ->call('submit')->assertHasNoErrors()->assertRedirect(route('landlord.support.show', SupportRequest::firstOrFail()));
 
         $this->assertDatabaseHas('support_requests', ['user_id' => $landlord->id, 'role_snapshot' => 'landlord', 'category' => 'landlord_payout', 'property_id' => $context['property']->id, 'payment_transaction_id' => $context['payment']->id]);
     }
@@ -94,6 +96,56 @@ class SupportRequestTest extends TestCase
         Livewire::actingAs($tenant)->test(Create::class)
             ->set('subject', 'Bad')->set('description', 'This unsupported attachment must be rejected safely.')
             ->set('attachment', UploadedFile::fake()->create('bad.exe', 20, 'application/octet-stream'))->call('submit')->assertHasErrors('attachment');
+    }
+
+    public function test_valid_submission_with_a_temporary_upload_persists_once_and_redirects_cleanly(): void
+    {
+        Storage::fake('local');
+        $tenant = $this->user('tenant');
+
+        Livewire::actingAs($tenant)->test(Create::class)
+            ->set('subject', 'Photo evidence')->set('description', 'I am attaching a PNG image as supporting evidence.')
+            ->set('attachment', UploadedFile::fake()->image('evidence.png'))
+            ->call('submit')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('tenant.support.show', SupportRequest::firstOrFail()));
+
+        $request = SupportRequest::firstOrFail();
+        $this->assertDatabaseCount('support_requests', 1);
+        $this->assertDatabaseCount('support_request_messages', 1);
+        $attachment = SupportRequestAttachment::firstOrFail();
+        $this->assertSame($request->messages()->firstOrFail()->id, $attachment->support_request_message_id);
+        Storage::disk('local')->assertExists($attachment->file_path);
+    }
+
+    public function test_validation_errors_clear_after_a_valid_resubmission_without_creating_a_duplicate(): void
+    {
+        $tenant = $this->user('tenant');
+        $component = Livewire::actingAs($tenant)->test(Create::class)
+            ->set('subject', '')->set('description', 'Too short')
+            ->call('submit')
+            ->assertHasErrors(['subject', 'description']);
+
+        $component->set('subject', 'Valid follow-up')->set('description', 'This valid support request clears the earlier validation state.')
+            ->call('submit')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('tenant.support.show', SupportRequest::firstOrFail()));
+
+        $this->assertDatabaseCount('support_requests', 1);
+    }
+
+    public function test_notification_failure_does_not_rollback_a_successful_support_request(): void
+    {
+        Mail::shouldReceive('to')->andThrow(new \RuntimeException('Mail transport unavailable.'));
+        $tenant = $this->user('tenant');
+
+        Livewire::actingAs($tenant)->test(Create::class)
+            ->set('subject', 'Notification-safe request')->set('description', 'This request must remain saved when notification mail cannot be delivered.')
+            ->call('submit')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseCount('support_requests', 1);
+        $this->assertDatabaseCount('support_request_messages', 1);
     }
 
     public function test_attachment_download_requires_the_request_owner_and_matching_parent_request(): void
