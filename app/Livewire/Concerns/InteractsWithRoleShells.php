@@ -55,6 +55,12 @@ trait InteractsWithRoleShells
                     'icon' => 'notifications',
                 ],
                 [
+                    'label' => 'Support',
+                    'href' => route('landlord.support.index'),
+                    'active' => request()->routeIs('landlord.support.*'),
+                    'icon' => 'notifications',
+                ],
+                [
                     'label' => 'Occupants',
                     'href' => route('landlord.occupancy.index'),
                     'active' => request()->routeIs('landlord.occupancy.*'),
@@ -104,6 +110,12 @@ trait InteractsWithRoleShells
                     'label' => 'Notifications',
                     'href' => route('tenant.notifications.index'),
                     'active' => request()->routeIs('tenant.notifications.*'),
+                    'icon' => 'notifications',
+                ],
+                [
+                    'label' => 'Support',
+                    'href' => route('tenant.support.index'),
+                    'active' => request()->routeIs('tenant.support.*'),
                     'icon' => 'notifications',
                 ],
                 [

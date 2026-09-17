@@ -42,8 +42,18 @@ class InspectionRequestController extends Controller
             if (Schema::hasTable('user_notifications')) {
                 $notifier = app(WorkflowNotifier::class);
 
+                $notifier->notify(
+                    $inspectionRequest->tenant,
+                    'inspection-requested:'.$inspectionRequest->getKey().':tenant',
+                    'Your inspection request has been received',
+                    "Your inspection request for {$property->title} has been received. VerifyHomes will review it and propose an inspection date and time. You do not need to make a booking payment yet. Next: wait for VerifyHomes to propose a schedule.",
+                    route('tenant.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]),
+                    'inspection_update',
+                    'View inspection request',
+                );
+
                 User::query()->whereHas('roles', fn ($query) => $query->whereIn('name', ['admin', 'staff']))->get()->each(function (User $admin) use ($notifier, $inspectionRequest, $property): void {
-                    $notifier->notify($admin, 'inspection-requested:'.$inspectionRequest->getKey().':admin', 'New inspection request', "A tenant requested an inspection for {$property->title}.", route('admin.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]), 'inspection_update', 'Review request');
+                    $notifier->notify($admin, 'inspection-requested:'.$inspectionRequest->getKey().':admin', 'New inspection request', "{$inspectionRequest->tenant->name} requested an inspection for {$property->title}. Next: review the request and propose an inspection schedule.", route('admin.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]), 'inspection_update', 'Propose inspection schedule');
                 });
             }
         });

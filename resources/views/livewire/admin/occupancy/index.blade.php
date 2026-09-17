@@ -18,7 +18,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Pending move-outs</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['pending_move_outs'] ?? 0 }}</p>
+                    <x-admin.kpi-value :value="$summary['pending_move_outs'] ?? 0" />
                     <p class="text-sm text-slate-600">Requests waiting for a decision.</p>
                 </div>
             </x-admin.panel>
@@ -26,7 +26,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Open complaints</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['open_complaints'] ?? 0 }}</p>
+                    <x-admin.kpi-value :value="$summary['open_complaints'] ?? 0" />
                     <p class="text-sm text-slate-600">Issues awaiting admin follow-up.</p>
                 </div>
             </x-admin.panel>
@@ -34,11 +34,18 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Overdue rent</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['overdue_occupancies'] ?? 0 }}</p>
+                    <x-admin.kpi-value :value="$summary['overdue_occupancies'] ?? 0" />
                     <p class="text-sm text-slate-600">Occupancies past the rent due date.</p>
                 </div>
             </x-admin.panel>
         </div>
+
+        @if ($moveInReportsAvailable && $moveInReports->isNotEmpty())
+            <x-admin.panel>
+                <div class="space-y-4"><div><p class="admin-eyebrow">Move-in condition</p><h3 class="admin-panel-title">Evidence requiring attention</h3></div>
+                <div class="space-y-3">@foreach ($moveInReports as $report)<div class="admin-data-box flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p class="font-medium text-slate-900">{{ $report->property?->title ?? 'Property' }}</p><p class="text-sm text-slate-600">{{ $report->tenant?->name ?? 'Tenant' }} / {{ $report->landlord?->name ?? 'Landlord' }}</p></div><div class="flex items-center gap-3"><x-status-chip tone="{{ $report->status === 'completed' ? 'success' : ($report->status === 'changes_requested' ? 'warning' : 'info') }}">{{ $report->status === 'changes_requested' ? 'Tenant raised an issue' : str($report->status)->headline() }}</x-status-chip><a href="{{ route('admin.move-in-reports.show', $report) }}" class="admin-inline-link">View report</a></div></div>@endforeach</div></div>
+            </x-admin.panel>
+        @endif
 
         <x-admin.panel>
             <div class="space-y-4">

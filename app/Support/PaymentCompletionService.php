@@ -7,6 +7,7 @@ use App\Models\PaymentTransaction;
 use App\Models\Property;
 use App\Models\PropertyPurchase;
 use App\Models\User;
+use App\Support\RentalPeriod;
 use Illuminate\Support\Facades\Schema;
 
 class PaymentCompletionService
@@ -66,7 +67,9 @@ class PaymentCompletionService
         }
 
         if ($activeOccupancy && $activeOccupancy->property_id === $property->getKey()) {
-            $nextDueAt = $timestamp->copy()->addMonthsNoOverflow($activeOccupancy->paymentCycleMonths());
+            $rentalPeriodMonths = $activeOccupancy->paymentCycleMonths();
+            $nextDueAt = $timestamp->copy()->addMonthsNoOverflow($rentalPeriodMonths);
+            $metadata = $this->withRentalPeriodSnapshot($metadata, $rentalPeriodMonths, $timestamp);
 
             $activeOccupancy->forceFill([
                 'last_payment_at' => $timestamp,
@@ -101,6 +104,8 @@ class PaymentCompletionService
         }
 
         $isUpcoming = $activeOccupancy !== null;
+        $rentalPeriodMonths = max(1, (int) data_get($metadata, 'rental_period_months', 12));
+        $metadata = $this->withRentalPeriodSnapshot($metadata, $rentalPeriodMonths, $timestamp);
 
         $property->forceFill($isUpcoming
             ? ['reserved_units' => min((int) $property->total_units, (int) $property->reserved_units + $unitsApplied)]
@@ -109,7 +114,7 @@ class PaymentCompletionService
 
         if ($occupanciesAvailable && $transaction->payer_id) {
             $startedAt = $isUpcoming ? null : $timestamp;
-            $nextDueAt = $isUpcoming ? null : $timestamp->copy()->addMonthsNoOverflow(12);
+            $nextDueAt = $isUpcoming ? null : $timestamp->copy()->addMonthsNoOverflow($rentalPeriodMonths);
 
             $occupancy = Occupancy::query()->create([
                 'property_id' => $property->getKey(),
@@ -117,13 +122,27 @@ class PaymentCompletionService
                 'payment_transaction_id' => $transaction->getKey(),
                 'status' => $isUpcoming ? 'upcoming' : 'active',
                 'units' => $unitsApplied,
-                'payment_cycle_months' => 12,
+                'payment_cycle_months' => $rentalPeriodMonths,
                 'started_at' => $startedAt,
                 'last_payment_at' => $isUpcoming ? null : $startedAt,
                 'next_payment_due_at' => $nextDueAt,
             ]);
+            $occupancy->loadMissing(['property.landlord', 'tenant', 'paymentTransaction']);
+            $agreement = app(TenancyAgreementService::class)->createForOccupancy($occupancy);
+            if ($agreement?->wasRecentlyCreated && $occupancy->tenant) {
+                app(WorkflowNotifier::class)->notify(
+                    $occupancy->tenant,
+                    'tenancy-agreement-ready:'.$agreement->getKey(),
+                    'Your tenancy agreement is ready to review',
+                    'Your tenancy agreement is ready to review for '.$property->title.'.',
+                    route('tenant.agreements.show', $agreement),
+                    'tenancy_agreement',
+                    'Review agreement',
+                );
+            }
         } else {
             $occupancy = null;
+            $agreement = null;
         }
 
         $metadata = array_replace($metadata, [
@@ -134,6 +153,7 @@ class PaymentCompletionService
             'property_reserved_units' => (int) $property->fresh()->reserved_units,
             'property_available_units' => (int) $property->fresh()->available_units,
             'occupancy_id' => $occupancy?->getKey(),
+            'tenancy_agreement_id' => $agreement?->getKey(),
             'occupancy_update_message' => $isUpcoming
                 ? 'Rent payment confirmed. Your next rental is secured and will become active after your current stay ends.'
                 : ($unitsApplied === 1
@@ -159,7 +179,7 @@ class PaymentCompletionService
                 $transaction->payer,
                 'inspection-booking-confirmed:'.$transaction->getKey(),
                 'Inspection booking confirmed',
-                $property ? "Your booking for {$property->title} is confirmed. Your inspection remains booked for the scheduled time." : 'Your inspection booking is confirmed.',
+                $property ? "Your booking fee for {$property->title} is confirmed. Your inspection is booked for ".($request?->scheduled_at?->format('M j, Y g:i A') ?? 'the scheduled time').'. No further action is needed right now; please be available for the inspection.' : 'Your inspection booking is confirmed. No further action is needed right now.',
                 $request ? route('tenant.inspection-requests.show', ['inspectionRequestId' => $request->getKey()]) : route('tenant.payments.index', ['reference' => $transaction->reference]),
                 'payment_confirmed',
                 'View inspection',
@@ -171,7 +191,7 @@ class PaymentCompletionService
                 $admin,
                 'inspection-booking-confirmed:'.$transaction->getKey().':admin',
                 'Inspection booking confirmed',
-                $property ? "Inspection booking confirmed for {$property->title}." : 'An inspection booking was confirmed.',
+                $property ? "The booking fee for {$transaction->payer?->name}'s inspection of {$property->title} is confirmed. The inspection is booked for ".($request?->scheduled_at?->format('M j, Y g:i A') ?? 'the scheduled time').'. Next: proceed with the scheduled inspection.' : 'An inspection booking was confirmed.',
                 $request ? route('admin.inspection-requests.show', ['inspectionRequestId' => $request->getKey()]) : route('admin.payments.index', ['reference' => $transaction->reference]),
                 'payment_confirmed',
                 'View inspection',
@@ -282,6 +302,12 @@ class PaymentCompletionService
         $property = $transaction->property;
         $tenant = $transaction->payer;
         $notifier = app(WorkflowNotifier::class);
+        $period = RentalPeriod::label(
+            (int) data_get($metadata, 'rental_period_days', 0) ?: null,
+            (int) data_get($metadata, 'rental_period_months', 0) ?: null,
+        );
+        $paymentDate = now()->format('M j, Y');
+        $nextDueDate = $isUpcoming ? null : now()->addMonthsNoOverflow((int) data_get($metadata, 'rental_period_months', 12))->format('M j, Y');
 
         if ($tenant) {
             $notifier->notify(
@@ -289,8 +315,8 @@ class PaymentCompletionService
                 'rent-payment-confirmed:'.$transaction->getKey(),
                 $isUpcoming ? 'Your next rental is secured' : 'Rent payment confirmed',
                 $isUpcoming
-                    ? ($property ? "Your next rental at {$property->title} is secured and will become active after your current stay ends." : 'Your next rental is secured.')
-                    : ($property ? "Your rent payment for {$property->title} is confirmed." : 'Your rent payment is confirmed.'),
+                    ? ($property ? "Your next rental at {$property->title} is secured. Rental period: {$period}. Payment date: {$paymentDate}. It will become active after your current stay ends." : "Your next rental is secured. Rental period: {$period}.")
+                    : ($property ? "Your rent payment for {$property->title} is confirmed. Rental period: {$period}. Payment date: {$paymentDate}. Next rent due: {$nextDueDate}. Your stay is active." : 'Your rent payment is confirmed.'),
                 route('tenant.occupancy.index'),
                 'payment_confirmed',
                 $isUpcoming ? 'View Upcoming Stay' : 'View My Stay',
@@ -303,22 +329,22 @@ class PaymentCompletionService
                 'rent-payment-confirmed:'.$transaction->getKey().':landlord',
                 $isUpcoming ? 'Upcoming rental secured' : 'Rent payment confirmed',
                 $isUpcoming
-                    ? ($property ? "An upcoming rental was secured for {$property->title}." : 'An upcoming rental was secured.')
-                    : ($property ? "A rent payment for {$property->title} was confirmed." : 'A rent payment was confirmed.'),
+                    ? ($property ? "An upcoming rental was secured for {$property->title}. Rental period: {$period}." : 'An upcoming rental was secured.')
+                    : ($property ? "A rent payment for {$property->title} was confirmed. Rental period: {$period}. Next rent due: {$nextDueDate}." : 'A rent payment was confirmed.'),
                 route('landlord.payments.index', ['reference' => $transaction->reference]),
                 'payment_confirmed',
                 'View payments',
             );
         }
 
-        User::role(['admin', 'staff'])->get()->each(function (User $admin) use ($notifier, $transaction, $property, $isUpcoming): void {
+        User::role(['admin', 'staff'])->get()->each(function (User $admin) use ($notifier, $transaction, $property, $isUpcoming, $period, $paymentDate, $nextDueDate): void {
             $notifier->notify(
                 $admin,
                 'rent-payment-confirmed:'.$transaction->getKey().':admin',
                 $isUpcoming ? 'Upcoming rental secured' : 'Rent payment confirmed',
                 $isUpcoming
-                    ? ($property ? "An upcoming rental was secured for {$property->title}." : 'An upcoming rental was secured.')
-                    : ($property ? "Rent payment confirmed for {$property->title}." : 'Rent payment confirmed.'),
+                    ? ($property ? "An upcoming rental was secured for {$property->title}. Rental period: {$period}." : 'An upcoming rental was secured.')
+                    : ($property ? "Rent payment confirmed for {$property->title}. Rental period: {$period}. Payment date: {$paymentDate}. Next rent due: {$nextDueDate}." : 'Rent payment confirmed.'),
                 route('admin.payments.index', ['reference' => $transaction->reference]),
                 'payment_confirmed',
                 'View payment',
@@ -328,6 +354,14 @@ class PaymentCompletionService
         $metadata['rent_notification_sent_at'] = now()->toIso8601String();
 
         return $metadata;
+    }
+
+    protected function withRentalPeriodSnapshot(array $metadata, int $months, \Illuminate\Support\Carbon $startsAt): array
+    {
+        return array_replace($metadata, [
+            'rental_period_months' => $months,
+            'rental_period_days' => max(1, (int) data_get($metadata, 'rental_period_days', RentalPeriod::daysForMonths($months, $startsAt))),
+        ]);
     }
 
     protected function attachPurchaseNotifications(PaymentTransaction $transaction, array $metadata, ?PropertyPurchase $purchaseRecord): array

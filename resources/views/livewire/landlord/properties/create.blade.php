@@ -119,7 +119,7 @@
             @endif
         </x-admin.panel>
 
-        <x-modal name="listing-terms-create" maxWidth="2xl">
+        <x-modal name="listing-terms-create" maxWidth="3xl">
             <div class="admin-modal-panel" data-terms-gate-modal-content="listing-terms:create">
                 <div class="admin-modal-header">
                     <h3 class="text-lg font-semibold text-slate-950">Listing terms</h3>
@@ -134,8 +134,8 @@
                     <p>Property details, occupancy, images, and uploaded documents must match the real property so review, tenant trust, and later payment handling stay consistent.</p>
                     <p>Bank details for future payout handling should stay current in your landlord profile, even though automated payout is not part of this pass.</p>
                     <div class="admin-callout">
-                        <label class="flex items-start gap-3 text-sm text-slate-700">
-                            <input type="checkbox" data-terms-gate-checkbox class="admin-checkbox mt-1" />
+                        <label for="listing-terms-create-checkbox" class="flex items-start gap-3 text-sm text-slate-700">
+                            <input id="listing-terms-create-checkbox" type="checkbox" data-terms-gate-checkbox class="admin-checkbox mt-1" />
                             <span>I have read and accept the listing terms for this property submission.</span>
                         </label>
                         <p class="admin-help" data-terms-gate-modal-status>

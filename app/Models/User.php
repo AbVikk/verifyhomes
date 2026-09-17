@@ -30,6 +30,13 @@ class User extends Authenticatable implements MustVerifyEmail
         'avatar_path',
         'password',
         'status',
+        'must_change_password',
+        'invited_at',
+        'activated_at',
+        'suspended_at',
+        'last_login_at',
+        'activation_token_hash',
+        'activation_expires_at',
     ];
 
     /**
@@ -51,6 +58,12 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'must_change_password' => 'boolean',
+            'invited_at' => 'datetime',
+            'activated_at' => 'datetime',
+            'suspended_at' => 'datetime',
+            'last_login_at' => 'datetime',
+            'activation_expires_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -96,6 +109,11 @@ class User extends Authenticatable implements MustVerifyEmail
             ->withTimestamps();
     }
 
+    public function landlordSettlements(): HasMany
+    {
+        return $this->hasMany(LandlordSettlement::class, 'landlord_id');
+    }
+
     public function isAdmin(): bool
     {
         return $this->hasRole('admin');
@@ -116,10 +134,19 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasRole('tenant');
     }
 
+    public function isSupportStaff(): bool
+    {
+        return $this->hasRole('support_staff');
+    }
+
     public function dashboardRouteName(): string
     {
         if ($this->hasAnyRole(['admin', 'staff'])) {
             return 'admin.dashboard';
+        }
+
+        if ($this->hasRole('support_staff')) {
+            return 'support-team.dashboard';
         }
 
         if ($this->hasRole('landlord')) {

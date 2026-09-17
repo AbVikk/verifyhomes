@@ -1,0 +1,1 @@
+<x-admin-layout page-heading="Support Requests"><div class="admin-page"><div class="admin-page-inner"><h2 class="admin-panel-title mb-5">Customer support queue</h2>@include('support-operations.queue')</div></div></x-admin-layout>

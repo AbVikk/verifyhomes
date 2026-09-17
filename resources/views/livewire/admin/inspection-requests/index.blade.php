@@ -11,7 +11,7 @@
                 <div class="space-y-4">
                     <div>
                         <h3 class="text-lg font-semibold text-slate-950">Inspection control center</h3>
-                        <p class="mt-1 text-sm text-slate-600">Receive requests, confirm payment, schedule visits, and record outcomes.</p>
+                        <p class="mt-1 text-sm text-slate-600">Review, schedule, and complete requests.</p>
                     </div>
 
                     <div class="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
@@ -154,12 +154,12 @@
                                             </x-admin.badge>
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
-                                            <p>{{ $inspectionRequest->preferred_date?->toFormattedDateString() ?: 'No date provided' }}</p>
-                                            <p class="text-slate-500">{{ $inspectionRequest->preferred_time_note ?: 'No time note' }}</p>
+                                            <p>{{ $inspectionRequest->preferred_date?->toFormattedDateString() ?: 'No date' }}</p>
+                                            <p class="text-slate-500">{{ $inspectionRequest->preferred_time_note ?: 'No time' }}</p>
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
-                                            <p>{{ $inspectionRequest->scheduled_at?->format('M j, Y g:i A') ?: 'Not scheduled yet' }}</p>
-                                            <p class="text-slate-500">{{ $inspectionRequest->landlord_note ? 'Landlord note received' : 'No landlord note yet' }}</p>
+                                            <p>{{ $inspectionRequest->scheduled_at?->format('M j, Y g:i A') ?: 'Not scheduled' }}</p>
+                                            @if ($inspectionRequest->landlord_note)<p class="text-slate-500">Landlord note</p>@endif
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-500">{{ $inspectionRequest->created_at->diffForHumans() }}</td>
                                         <td class="px-4 py-4 text-right"><x-admin.action-link href="{{ route('admin.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]) }}">View request</x-admin.action-link></td>

@@ -89,6 +89,38 @@ class OccupancyWorkflowTest extends TestCase
             ->assertDontSee('Other Occupancy Listing');
     }
 
+    public function test_landlord_can_view_only_a_connected_tenants_safe_profile(): void
+    {
+        $landlord = $this->createLandlord('profile-owner@example.com');
+        $tenant = $this->createTenant('profile-tenant@example.com');
+        $tenant->update(['avatar_path' => 'profile-pictures/'.$tenant->id.'/avatar.jpg']);
+        $tenant->tenantProfile->update([
+            'verification_status' => 'verified',
+            'id_type' => 'nin',
+            'id_number' => '12345678901',
+            'selfie_path' => 'tenant-verification/private-selfie.jpg',
+            'admin_notes' => 'Private note',
+        ]);
+        $property = $this->createProperty($landlord, ['title' => 'Connected Tenant Property']);
+        $this->createOccupancy($tenant, $property, ['status' => 'upcoming']);
+
+        $response = $this->actingAs($landlord)->get(route('landlord.tenants.show', $tenant));
+
+        $response->assertOk()->assertSee($tenant->name)->assertSee('Verified by VerifyHomes')->assertSee('Upcoming tenant')
+            ->assertSee('tenant-profile-photo')->assertDontSee('12345678901')->assertDontSee('Private note')
+            ->assertDontSee('tenant-verification/private-selfie.jpg')->assertDontSee($tenant->email);
+    }
+
+    public function test_landlord_cannot_view_an_unrelated_tenant_profile(): void
+    {
+        $landlord = $this->createLandlord('profile-owner@example.com');
+        $otherLandlord = $this->createLandlord('profile-other@example.com');
+        $tenant = $this->createTenant('profile-unrelated@example.com');
+        $this->createOccupancy($tenant, $this->createProperty($otherLandlord));
+
+        $this->actingAs($landlord)->get(route('landlord.tenants.show', $tenant))->assertNotFound();
+    }
+
     public function test_tenant_can_create_a_move_out_request(): void
     {
         $tenant = $this->createTenant();

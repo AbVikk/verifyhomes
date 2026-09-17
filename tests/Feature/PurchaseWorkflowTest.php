@@ -271,7 +271,10 @@ class PurchaseWorkflowTest extends TestCase
             ->first();
 
         $this->assertNotNull($purchase);
-        $callbackResponse->assertRedirect(route('tenant.purchases.show', $purchase));
+        $callbackResponse->assertOk()
+            ->assertViewIs('payments.callback-success')
+            ->assertViewHas('returnUrl', route('tenant.purchases.show', $purchase))
+            ->assertSee('View purchase receipt');
 
         $this->assertSame('paid', $transaction->status);
         $this->assertSame('554433', $transaction->provider_reference);
@@ -461,6 +464,8 @@ class PurchaseWorkflowTest extends TestCase
 
         TenantProfile::create([
             'user_id' => $tenant->id,
+            'verification_status' => 'verified',
+            'verified_at' => now(),
         ]);
 
         return $tenant;

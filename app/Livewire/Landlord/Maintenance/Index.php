@@ -1,0 +1,3 @@
+<?php
+namespace App\Livewire\Landlord\Maintenance; use App\Livewire\Concerns\InteractsWithAuthenticatedUser; use App\Livewire\Concerns\InteractsWithRoleShells; use App\Models\MaintenanceRequest; use Illuminate\View\View; use Livewire\Component;
+class Index extends Component {use InteractsWithAuthenticatedUser,InteractsWithRoleShells; public function render():View{$requests=MaintenanceRequest::query()->where('landlord_id',$this->currentUserId())->with(['property','tenant'])->latest()->get();return view('livewire.landlord.maintenance.index',compact('requests'))->layout('layouts.dashboard-shell',$this->landlordShell('Maintenance'));}}

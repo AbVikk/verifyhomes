@@ -1,18 +1,40 @@
 <?php
 
 use App\Http\Controllers\InspectionRequestController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TermsGateController;
+use App\Models\Property;
 use App\Models\User;
 use App\Livewire\PublicProperties\Index as PublicPropertyIndex;
 use App\Livewire\PublicProperties\Show as PublicPropertyShow;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 
 Route::get('/', function () {
-    return view('welcome');
+    $featuredProperties = Schema::hasTable('properties')
+        ? Property::query()
+            ->publiclyVisible()
+            ->with('coverImage')
+            ->latest()
+            ->limit(6)
+            ->get()
+        : collect();
+
+    return view('public.home', [
+        'featuredProperties' => $featuredProperties,
+    ]);
 })->name('home');
+
+Route::get('/support', function (Request $request) {
+    return view('public.support', [
+        'supportUser' => $request->user(),
+    ]);
+})->name('support');
+Route::view('/terms', 'public.terms')->name('terms');
+Route::view('/privacy', 'public.privacy')->name('privacy');
 
 Route::get('/properties', PublicPropertyIndex::class)->name('properties.index');
 Route::get('/properties/{property:slug}', PublicPropertyShow::class)->name('properties.show');
@@ -39,9 +61,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::post('/terms-gates/open', [TermsGateController::class, 'open'])->name('terms-gates.open');
     Route::post('/terms-gates/complete', [TermsGateController::class, 'complete'])->name('terms-gates.complete');
+    Route::get('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
 });
 
 require __DIR__.'/admin.php';
 require __DIR__.'/landlord.php';
 require __DIR__.'/tenant.php';
+require __DIR__.'/support-team.php';
 require __DIR__.'/auth.php';

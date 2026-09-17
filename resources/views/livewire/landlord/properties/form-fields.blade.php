@@ -105,6 +105,24 @@
                 @error('rentAmount') <p class="admin-error">{{ $message }}</p> @enderror
             </div>
 
+            @if ($listingIntent === 'for_rent')
+                <div class="md:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p class="font-semibold text-slate-900">Accepted Rental Plans</p>
+                    <p class="mt-1 text-sm text-slate-600">Set the rental periods tenants can choose from and the amount payable for each period.</p>
+                    <div class="mt-4 space-y-3">
+                        @foreach ($rentPlans as $index => $plan)
+                            <div class="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                                <div><label class="admin-label">Rental period</label><input wire:model.defer="rentPlans.{{ $index }}.period_months" type="number" min="1" max="120" class="admin-control" placeholder="e.g. 12 months" />@error("rentPlans.{$index}.period_months") <p class="admin-error">{{ $message }}</p> @enderror</div>
+                                <div><label class="admin-label">Rent amount</label><input wire:model.defer="rentPlans.{{ $index }}.amount" type="number" min="0.01" step="0.01" class="admin-control" placeholder="e.g. 200000" />@error("rentPlans.{$index}.amount") <p class="admin-error">{{ $message }}</p> @enderror</div>
+                                <button type="button" wire:click="removeRentPlan({{ $index }})" class="admin-button admin-button-secondary">Remove</button>
+                            </div>
+                        @endforeach
+                    </div>
+                    <button type="button" wire:click="addRentPlan" class="admin-button admin-button-secondary mt-3">Add rental plan</button>
+                    @error('rentPlans') <p class="admin-error mt-2">{{ $message }}</p> @enderror
+                </div>
+            @endif
+
             @if ($showsLandSizeFields)
                 <div>
                     <label for="landSize" class="admin-label">Land size</label>

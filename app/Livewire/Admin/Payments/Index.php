@@ -6,6 +6,7 @@ use App\Livewire\Admin\Concerns\HasAdminLayout;
 use App\Models\PaymentTransaction;
 use App\Support\Currency;
 use App\Support\Payments\PaymentGatewayManager;
+use App\Support\LandlordSettlementService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -41,19 +42,15 @@ class Index extends Component
 
     public function markLandlordSettled(int $transactionId): void
     {
+        abort_unless(Auth::user()?->isAdmin(), 403);
         $transaction = PaymentTransaction::query()->findOrFail($transactionId);
-
-        abort_unless(
-            $transaction->status === 'paid'
-            && in_array($transaction->transaction_type, ['rent_payment', 'house_purchase_payment', 'land_purchase_payment', 'purchase_payment'], true),
-            404,
+        app(LandlordSettlementService::class)->record(
+            $transaction->getKey(),
+            Auth::user(),
+            $transaction->net_amount,
+            null,
+            'Legacy payment workspace',
         );
-
-        $transaction->update([
-            'landlord_settlement_status' => 'recorded_paid',
-            'landlord_settled_at' => now(),
-            'landlord_settled_by' => Auth::id(),
-        ]);
 
         session()->flash('status', 'Landlord payout recorded internally. This does not initiate or confirm an external bank transfer.');
     }
@@ -170,21 +167,36 @@ class Index extends Component
     public function platformFeeSummary(PaymentTransaction $transaction): string
     {
         if ($transaction->transaction_type === 'inspection_booking_fee') {
-            return 'VerifyHomes booking revenue: '.$this->formatMoney($transaction->gross_amount, $transaction->currency).'. Landlord amount: '.$this->formatMoney(0, $transaction->currency).'.';
+            return 'Booking fee: '.$this->formatMoney($transaction->gross_amount, $transaction->currency).'. VerifyHomes revenue: '.$this->formatMoney($transaction->gross_amount, $transaction->currency).'. Landlord payout: '.$this->formatMoney(0, $transaction->currency).'.';
         }
 
         $percentage = (float) ($transaction->platform_fee_percentage ?? 0);
 
-        if ($percentage <= 0) {
-            return 'No platform fee is being deducted from this transaction.';
-        }
-
         return sprintf(
-            'Platform fee: %s (%s%%). Net amount: %s.',
+            '%s: %s. Platform fee: %s (%s%%). Landlord payout: %s.',
+            $this->detailAmountLabel($transaction),
+            $this->formatMoney($transaction->gross_amount, $transaction->currency),
             $this->formatMoney($transaction->platform_fee_amount, $transaction->currency),
             number_format($percentage, 2),
             $this->formatMoney($transaction->net_amount, $transaction->currency),
         );
+    }
+
+    public function amountLabel(PaymentTransaction $transaction): string
+    {
+        return match ($transaction->transaction_type) {
+            'rent_payment' => 'Rent',
+            'inspection_booking_fee' => 'Booking fee',
+            'house_purchase_payment', 'land_purchase_payment', 'purchase_payment' => 'Purchase amount',
+            default => 'Amount',
+        };
+    }
+
+    public function detailAmountLabel(PaymentTransaction $transaction): string
+    {
+        return $transaction->transaction_type === 'rent_payment'
+            ? 'Rent amount'
+            : $this->amountLabel($transaction);
     }
 
     public function workflowImpactSummary(PaymentTransaction $transaction): ?string
@@ -197,7 +209,8 @@ class Index extends Component
     {
         return $transaction->status === 'paid'
             && in_array($transaction->transaction_type, ['rent_payment', 'house_purchase_payment', 'land_purchase_payment', 'purchase_payment'], true)
-            && $transaction->landlord_settlement_status !== 'recorded_paid';
+            && $transaction->landlord_settlement_status !== 'recorded_paid'
+            && Auth::user()?->isAdmin();
     }
 
     public function landlordSettlementSummary(PaymentTransaction $transaction): ?string

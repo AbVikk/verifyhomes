@@ -6,6 +6,7 @@ use App\Livewire\Admin\Concerns\HasAdminLayout;
 use App\Models\Occupancy;
 use App\Models\OccupancyComplaint;
 use App\Models\OccupancyMoveOutRequest;
+use App\Models\MoveInConditionReport;
 use App\Models\Property;
 use App\Models\User;
 use App\Models\UserNotification;
@@ -28,6 +29,7 @@ class Index extends Component
         $occupanciesAvailable = Schema::hasTable('occupancies');
         $moveOutAvailable = Schema::hasTable('occupancy_move_out_requests');
         $complaintsAvailable = Schema::hasTable('occupancy_complaints');
+        $moveInReportsAvailable = Schema::hasTable('move_in_condition_reports');
 
         $moveOutRequests = $moveOutAvailable
             ? OccupancyMoveOutRequest::query()
@@ -49,14 +51,20 @@ class Index extends Component
                 ->whereNotNull('next_payment_due_at')
                 ->where('next_payment_due_at', '<', now())
                 ->with(['property', 'tenant'])
+                ->withCount(['maintenanceRequests as maintenance_open_count' => fn ($query) => $query->where('status', '!=', 'closed')])
                 ->latest('next_payment_due_at')
                 ->get()
+            : new Collection();
+        $moveInReports = $moveInReportsAvailable
+            ? MoveInConditionReport::query()->with(['property', 'tenant', 'landlord'])->latest()->get()
             : new Collection();
 
         return $this->adminPage(view('livewire.admin.occupancy.index', [
             'occupanciesAvailable' => $occupanciesAvailable,
             'moveOutAvailable' => $moveOutAvailable,
             'complaintsAvailable' => $complaintsAvailable,
+            'moveInReportsAvailable' => $moveInReportsAvailable,
+            'moveInReports' => $moveInReports,
             'moveOutRequests' => $moveOutRequests,
             'complaints' => $complaints,
             'overdueOccupancies' => $overdueOccupancies,

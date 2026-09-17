@@ -40,7 +40,7 @@ class LandlordManagementTest extends TestCase
         $response->assertSee('Landlord Profile');
         $response->assertSee('data-admin-shell-key="landlord"', false);
         $response->assertSee('Workspace Menu');
-        $response->assertSee('Use Camera');
+        $response->assertSee('Take photo');
         $response->assertSee('href="'.route('landlord.profile').'"', false);
         $response->assertDontSee('href="'.route('profile.edit').'"', false);
         $response->assertDontSee('<nav x-data="{ open: false }" class="bg-white border-b border-gray-100">', false);

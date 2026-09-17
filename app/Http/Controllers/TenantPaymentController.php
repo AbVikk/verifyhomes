@@ -10,6 +10,8 @@ use App\Support\InspectionRequestOptions;
 use App\Support\Payments\PaymentGatewayManager;
 use App\Support\TermsGateService;
 use App\Support\RentalEligibility;
+use App\Support\TenantVerification;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
 
@@ -22,6 +24,10 @@ class TenantPaymentController extends Controller
         TermsGateService $termsGateService,
     ): RedirectResponse {
         abort_unless($inspectionRequest->tenant_id === auth()->id(), 404);
+
+        if (! TenantVerification::isVerified(auth()->user())) {
+            return redirect()->route('tenant.verification')->with('status', 'Verify your identity before paying an inspection booking fee.');
+        }
 
         request()->validate([
             'accepted_inspection_terms' => ['accepted'],
@@ -92,7 +98,7 @@ class TenantPaymentController extends Controller
 
     public function handlePaymentCallback(
         PaymentCheckoutService $checkoutService,
-    ): RedirectResponse {
+    ): RedirectResponse|View {
         $reference = (string) request()->query('reference', '');
 
         if ($reference === '') {
@@ -109,6 +115,9 @@ class TenantPaymentController extends Controller
                 ->with('status', 'We could not verify that payment record from the callback.');
         }
 
+        $returnUrl = route('tenant.payments.index', ['reference' => $transaction->reference]);
+        $returnLabel = 'Return to payments';
+
         if (in_array($transaction->transaction_type, ['house_purchase_payment', 'land_purchase_payment', 'purchase_payment'], true)
             && $transaction->status === 'paid'
             && Schema::hasTable('property_purchases')) {
@@ -119,14 +128,21 @@ class TenantPaymentController extends Controller
                 ->first();
 
             if ($purchase) {
-                return redirect()
-                    ->route('tenant.purchases.show', $purchase)
-                    ->with('status', 'Purchase confirmed. Your receipt is ready.');
+                $returnUrl = route('tenant.purchases.show', $purchase);
+                $returnLabel = 'View purchase receipt';
             }
         }
 
+        if ($transaction->status === 'paid') {
+            return view('payments.callback-success', [
+                'returnUrl' => $returnUrl,
+                'returnLabel' => $returnLabel,
+                'transaction' => $transaction,
+            ]);
+        }
+
         return redirect()
-            ->route('tenant.payments.index', ['reference' => $transaction->reference])
+            ->to($returnUrl)
             ->with('status', $this->callbackStatusMessage($transaction));
     }
 
@@ -136,6 +152,10 @@ class TenantPaymentController extends Controller
         PaymentGatewayManager $paymentGatewayManager,
     ): RedirectResponse {
         abort_unless($property->isPubliclyVisible(), 404);
+
+        if (! TenantVerification::isVerified(auth()->user())) {
+            return redirect()->route('tenant.verification')->with('status', 'Verify your identity before starting property payment.');
+        }
 
         if ($property->listing_intent !== 'for_rent') {
             return redirect()
@@ -225,7 +245,7 @@ class TenantPaymentController extends Controller
         }
 
         try {
-            $transaction = $checkoutService->initiateRentPayment($property, auth()->user());
+            $transaction = $checkoutService->initiateRentPayment($property, auth()->user(), request()->integer('rent_plan_id') ?: null);
         } catch (\Throwable $throwable) {
             report($throwable);
 
@@ -237,7 +257,7 @@ class TenantPaymentController extends Controller
         if (! $transaction) {
             return redirect()
                 ->route('properties.show', $property)
-                ->with('status', 'We could not start the rent payment right now. Please try again.');
+                ->withErrors(['rent_plan_id' => 'Choose an active rental plan for this property before starting checkout.']);
         }
 
         $checkoutUrl = (string) data_get($transaction->metadata, 'checkout_url', '');
@@ -260,6 +280,10 @@ class TenantPaymentController extends Controller
         PaymentGatewayManager $paymentGatewayManager,
     ): RedirectResponse {
         abort_unless($property->isPubliclyVisible(), 404);
+
+        if (! TenantVerification::isVerified(auth()->user())) {
+            return redirect()->route('tenant.verification')->with('status', 'Verify your identity before starting property payment.');
+        }
 
         if ($property->listing_intent !== 'for_sale') {
             return redirect()

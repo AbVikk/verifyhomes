@@ -49,6 +49,10 @@ class WorkflowEmailTest extends TestCase
 
         Mail::assertSent(WorkflowNotificationMail::class, fn (WorkflowNotificationMail $mail) => $mail->hasTo($admin->email) && $mail->actionUrl === route('admin.inspection-requests.show', ['inspectionRequestId' => 1]));
         Mail::assertSent(WorkflowNotificationMail::class, fn (WorkflowNotificationMail $mail) => $mail->hasTo($staff->email));
+        Mail::assertSent(WorkflowNotificationMail::class, fn (WorkflowNotificationMail $mail) => $mail->hasTo($tenant->email)
+            && $mail->subjectLine === 'Your inspection request has been received'
+            && str_contains($mail->messageText, 'do not need to make a booking payment yet')
+            && $mail->actionUrl === route('tenant.inspection-requests.show', ['inspectionRequestId' => 1]));
         Mail::assertNotSent(WorkflowNotificationMail::class, fn (WorkflowNotificationMail $mail) => $mail->hasTo($landlord->email));
     }
 
@@ -64,10 +68,14 @@ class WorkflowEmailTest extends TestCase
         PaymentTransactionRecorder::markPaid($transaction, 'rent-email-001');
         PaymentTransactionRecorder::markPaid($transaction->fresh(), 'rent-email-001-replay');
 
-        Mail::assertSent(WorkflowNotificationMail::class, 3);
-        Mail::assertSent(WorkflowNotificationMail::class, fn (WorkflowNotificationMail $mail) => $mail->hasTo($tenant->email) && $mail->subjectLine === 'Rent payment confirmed' && $mail->actionUrl === route('tenant.occupancy.index'));
+        Mail::assertSent(WorkflowNotificationMail::class, 4);
+        Mail::assertSent(WorkflowNotificationMail::class, fn (WorkflowNotificationMail $mail) => $mail->hasTo($tenant->email) && $mail->subjectLine === 'Rent payment confirmed' && str_contains($mail->messageText, 'Rental period: 365 days (1 year)') && $mail->actionUrl === route('tenant.occupancy.index'));
         Mail::assertSent(WorkflowNotificationMail::class, fn (WorkflowNotificationMail $mail) => $mail->hasTo($landlord->email) && ! str_contains($mail->messageText, 'booking fee') && ! str_contains($mail->messageText, $transaction->reference));
         Mail::assertSent(WorkflowNotificationMail::class, fn (WorkflowNotificationMail $mail) => $mail->hasTo($admin->email));
+        Mail::assertSent(WorkflowNotificationMail::class, fn (WorkflowNotificationMail $mail) => $mail->hasTo($tenant->email)
+            && $mail->subjectLine === 'Your tenancy agreement is ready to review'
+            && ! str_contains($mail->messageText, $transaction->reference)
+            && str_contains($mail->actionUrl, '/tenant/agreements/'));
     }
 
     public function test_mail_transport_failure_does_not_break_paid_rent_effects(): void
@@ -136,6 +144,17 @@ class WorkflowEmailTest extends TestCase
             && $mail->subjectLine === 'Land purchase confirmed'
             && $mail->actionLabel === 'View receipt'
             && str_contains($mail->actionUrl, '/tenant/purchases/'));
+    }
+
+    public function test_rental_period_labels_use_the_transaction_snapshot_only_for_rent(): void
+    {
+        $annual = new PaymentTransaction(['transaction_type' => 'rent_payment', 'metadata' => ['rental_period_days' => 365, 'rental_period_months' => 12]]);
+        $halfYear = new PaymentTransaction(['transaction_type' => 'rent_payment', 'metadata' => ['rental_period_days' => 180, 'rental_period_months' => 6]]);
+
+        $this->assertSame('365 days (1 year)', $annual->rentalPeriodLabel());
+        $this->assertSame('180 days (6 months)', $halfYear->rentalPeriodLabel());
+        $this->assertSame('-', (new PaymentTransaction(['transaction_type' => 'inspection_booking_fee']))->rentalPeriodLabel());
+        $this->assertSame('-', (new PaymentTransaction(['transaction_type' => 'house_purchase_payment']))->rentalPeriodLabel());
     }
 
     protected function user(string $role, string $email): User

@@ -12,7 +12,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Total purchases</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['total'] }}</p>
+                    <x-admin.kpi-value :value="$summary['total']" />
                     <p class="text-sm text-slate-600">Confirmed purchase records.</p>
                 </div>
             </x-admin.panel>
@@ -20,7 +20,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">House purchases</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['house'] }}</p>
+                    <x-admin.kpi-value :value="$summary['house']" />
                     <p class="text-sm text-slate-600">Completed house sale payments.</p>
                 </div>
             </x-admin.panel>
@@ -28,7 +28,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Land purchases</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['land'] }}</p>
+                    <x-admin.kpi-value :value="$summary['land']" />
                     <p class="text-sm text-slate-600">Completed land sale payments.</p>
                 </div>
             </x-admin.panel>
@@ -36,7 +36,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Gross total</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $this->formatMoney($summary['gross']) }}</p>
+                    <x-admin.kpi-value :value="\App\Support\Currency::formatCompact($summary['gross'])" :exact="$this->formatMoney($summary['gross'])" />
                     <p class="text-sm text-slate-600">Total recorded purchase value.</p>
                 </div>
             </x-admin.panel>

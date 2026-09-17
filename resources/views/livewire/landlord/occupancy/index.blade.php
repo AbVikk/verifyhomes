@@ -14,7 +14,6 @@
                     <div>
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Filtered tenant</p>
                         <p class="text-lg font-semibold text-slate-900">{{ $tenantProfile->name }}</p>
-                        <p class="text-sm text-slate-500">{{ $tenantProfile->email }}</p>
                     </div>
                     <a href="{{ route('landlord.occupancy.index') }}" class="admin-button admin-button-secondary">Clear filter</a>
                 </div>
@@ -70,10 +69,13 @@
                                         <tr>
                                             <th class="admin-table-head-cell">Tenant</th>
                                             <th class="admin-table-head-cell">Status</th>
+                                            <th class="admin-table-head-cell">Rental Period</th>
                                             <th class="admin-table-head-cell">Next rent due</th>
                                             <th class="admin-table-head-cell">Days remaining</th>
                                             <th class="admin-table-head-cell">Overdue</th>
                                             <th class="admin-table-head-cell">Rent status</th>
+                                            <th class="admin-table-head-cell">Agreement</th>
+                                            <th class="admin-table-head-cell">Move-in condition</th>
                                         </tr>
                                     </thead>
                                     <tbody class="admin-table-body">
@@ -93,7 +95,7 @@
                                             <tr class="align-top">
                                                 <td class="px-4 py-4 text-sm text-slate-700">
                                                     <div class="flex items-center gap-3">
-                                                        <div class="h-10 w-10 overflow-hidden rounded-xl bg-slate-100">
+                                                        <a href="{{ route('landlord.tenants.show', $occupancy->tenant) }}" class="h-10 w-10 overflow-hidden rounded-xl bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500">
                                                             @if ($occupancy->tenant?->avatar_path)
                                                                 <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($occupancy->tenant->avatar_path) }}" alt="{{ $occupancy->tenant->name }}" class="h-full w-full object-cover">
                                                             @else
@@ -101,16 +103,14 @@
                                                                     {{ str($occupancy->tenant?->name ?? 'T')->substr(0, 2)->upper() }}
                                                                 </div>
                                                             @endif
-                                                        </div>
-                                                        <div>
-                                                            <p class="font-medium text-slate-900">{{ $occupancy->tenant?->name ?? 'Tenant' }}</p>
-                                                            <p class="text-xs text-slate-500">{{ $occupancy->tenant?->email ?? 'No email' }}</p>
-                                                        </div>
+                                                        </a>
+                                                        <div><a href="{{ route('landlord.tenants.show', $occupancy->tenant) }}" class="font-medium text-slate-900 hover:text-sky-800">{{ $occupancy->tenant?->name ?? 'Tenant' }}</a></div>
                                                     </div>
                                                 </td>
                                                 <td class="px-4 py-4 text-sm text-slate-700">
                                                     <x-status-chip tone="{{ $statusTone }}">{{ str($occupancy->status)->headline() }}</x-status-chip>
                                                 </td>
+                                                <td class="px-4 py-4 text-sm text-slate-700">{{ $isRent ? $occupancy->rentalPeriodLabel() : '-' }}</td>
                                                 <td class="px-4 py-4 text-sm text-slate-700">
                                                     {{ $occupancy->status === 'upcoming' ? 'After current stay closes' : ($dueAt && $isRent ? $dueAt->format('M j, Y') : 'Not required') }}
                                                 </td>
@@ -125,6 +125,29 @@
                                                         0 days
                                                     @else
                                                         {{ $daysRemaining }} day{{ $daysRemaining === 1 ? '' : 's' }}
+                                                    @endif
+                                                </td>
+                                                <td class="px-4 py-4 text-sm text-slate-700"><p class="font-medium">Maintenance</p><p class="mt-1 text-xs text-slate-600">{{ $occupancy->maintenance_open_count ? $occupancy->maintenance_open_count.' open' : 'No open issues' }}</p><a href="{{ route('landlord.maintenance.index') }}" class="admin-inline-link mt-1 inline-flex">View requests</a></td>
+                                                <td class="px-4 py-4 text-sm text-slate-700">
+                                                    @if (! $moveInReportsAvailable)
+                                                        -
+                                                    @elseif ($occupancy->moveInConditionReport)
+                                                        @php($report = $occupancy->moveInConditionReport)
+                                                        <div class="space-y-2"><x-status-chip tone="{{ $report->status === 'completed' ? 'success' : ($report->status === 'changes_requested' ? 'warning' : 'info') }}">{{ str($report->status)->headline() }}</x-status-chip><a href="{{ route('landlord.move-in-reports.edit', $occupancy) }}" class="admin-inline-link block">{{ $report->canBeEditedByLandlord() ? 'Continue report' : 'View report' }}</a></div>
+                                                    @elseif ($occupancy->tenancyAgreement?->completed_at)
+                                                        <div class="space-y-2"><span class="text-slate-600">Not started</span><button wire:click="startMoveInReport({{ $occupancy->id }})" type="button" class="admin-inline-link" wire:loading.attr="disabled">Start report</button></div>
+                                                    @else
+                                                        <span class="text-slate-500">Complete agreement first</span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-4 py-4 text-sm text-slate-700">
+                                                    @if (! $agreementsAvailable)
+                                                        -
+                                                    @elseif (! $occupancy->tenancyAgreement)
+                                                        <span class="text-slate-500">No agreement generated</span>
+                                                    @else
+                                                        @php($agreement = $occupancy->tenancyAgreement)
+                                                        <div class="space-y-2"><x-status-chip tone="{{ $agreement->completed_at ? 'success' : ($agreement->landlord_accepted_at ? 'info' : ($agreement->tenant_accepted_at ? 'warning' : 'info')) }}">{{ $agreement->completed_at ? 'Completed' : ($agreement->landlord_accepted_at ? 'Awaiting tenant' : ($agreement->tenant_accepted_at ? 'Awaiting your acceptance' : 'Awaiting tenant')) }}</x-status-chip><a href="{{ route('landlord.agreements.show', $agreement) }}" class="admin-inline-link block">Review agreement</a></div>
                                                     @endif
                                                 </td>
                                                 <td class="px-4 py-4 text-sm text-slate-700">

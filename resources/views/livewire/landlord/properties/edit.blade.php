@@ -137,7 +137,7 @@
                     <div class="flex flex-col gap-4 border-t border-slate-200 pt-5 md:flex-row md:items-center md:justify-between">
                         <a href="{{ route('landlord.properties') }}" class="admin-action-link">Back to properties</a>
 
-                        <button type="submit" wire:loading.attr="disabled" wire:target="save,images,documents" @disabled(! $hasAcceptedListingTerms) class="admin-button {{ $hasAcceptedListingTerms ? 'admin-button-primary' : 'admin-button-blocked' }}" data-terms-gate-submit-button>
+                        <button type="submit" wire:loading.attr="disabled" wire:target="save,images,documents" class="admin-button admin-button-primary" data-terms-gate-submit-button>
                             <span wire:loading.remove wire:target="save,images,documents">Update Property</span>
                             <span wire:loading wire:target="save,images,documents">Updating...</span>
                         </button>
@@ -146,7 +146,7 @@
             </x-admin.panel>
         </div>
 
-        <x-modal name="listing-terms-edit" maxWidth="2xl">
+        <x-modal name="listing-terms-edit" maxWidth="3xl">
             <div class="admin-modal-panel" data-terms-gate-modal-content="{{ $this->listingTermsGate($property) }}">
                 <div class="admin-modal-header">
                     <h3 class="text-lg font-semibold text-slate-950">Listing terms</h3>
@@ -160,8 +160,8 @@
                     <p>Property details, occupancy, uploaded images, and uploaded documents must stay honest, accurate, and aligned with the real property.</p>
                     <p>Bank details for future payout handling should stay current in your landlord profile, even though automated payout is not part of this pass.</p>
                     <div class="admin-callout">
-                        <label class="flex items-start gap-3 text-sm text-slate-700">
-                            <input type="checkbox" data-terms-gate-checkbox class="admin-checkbox mt-1" />
+                        <label for="listing-terms-edit-checkbox" class="flex items-start gap-3 text-sm text-slate-700">
+                            <input id="listing-terms-edit-checkbox" type="checkbox" data-terms-gate-checkbox class="admin-checkbox mt-1" />
                             <span>I have read and accept the listing terms for this property update.</span>
                         </label>
                         <p class="admin-help" data-terms-gate-modal-status>

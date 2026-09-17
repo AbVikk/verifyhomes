@@ -218,6 +218,11 @@ class Property extends Model
         return $this->hasMany(PropertyDocument::class)->latest();
     }
 
+    public function rentPlans(): HasMany
+    {
+        return $this->hasMany(PropertyRentPlan::class)->orderBy('period_months');
+    }
+
     public function statusHistories(): HasMany
     {
         return $this->hasMany(PropertyStatusHistory::class)->latest();
@@ -236,6 +241,11 @@ class Property extends Model
     public function purchases(): HasMany
     {
         return $this->hasMany(PropertyPurchase::class);
+    }
+
+    public function landlordSettlements(): HasMany
+    {
+        return $this->hasMany(LandlordSettlement::class);
     }
 
     public function savedByTenants(): BelongsToMany

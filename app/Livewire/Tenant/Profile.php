@@ -74,30 +74,11 @@ class Profile extends Component
         $profile = $this->tenantProfile();
         $existingAvatarPath = $user->avatar_path;
 
-        try {
-            if ($this->profilePicture) {
-                $newAvatarPath = $this->profilePicture->store("profile-pictures/{$user->id}", 'public');
+        $user->forceFill([
+            'phone' => $validated['accountPhone'],
+        ])->save();
 
-                $user->forceFill([
-                    'phone' => $validated['accountPhone'],
-                    'avatar_path' => $newAvatarPath,
-                ])->save();
-
-                if ($existingAvatarPath) {
-                    Storage::disk('public')->delete($existingAvatarPath);
-                }
-
-                $this->avatarPath = $newAvatarPath;
-                $this->reset('profilePicture');
-            } else {
-                $user->forceFill([
-                    'phone' => $validated['accountPhone'],
-                ])->save();
-            }
-        } catch (Throwable $throwable) {
-            report($throwable);
-            $this->addError('profilePicture', 'We could not store your profile picture right now. Please try again.');
-
+        if ($this->profilePicture && ! $this->storeProfilePicture($user, $existingAvatarPath)) {
             return;
         }
 
@@ -108,6 +89,21 @@ class Profile extends Component
         ]);
 
         session()->flash('status', 'Tenant profile updated successfully.');
+    }
+
+    public function saveProfilePicture(): void
+    {
+        $this->validate([
+            'profilePicture' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        $user = $this->currentUser();
+
+        if (! $this->storeProfilePicture($user, $user->avatar_path)) {
+            return;
+        }
+
+        session()->flash('status', 'Profile picture saved successfully.');
     }
 
     public function removeProfilePicture(): void
@@ -155,5 +151,27 @@ class Profile extends Component
         return $user->tenantProfile()->firstOrCreate([
             'user_id' => $user->getKey(),
         ]);
+    }
+
+    private function storeProfilePicture($user, ?string $existingAvatarPath): bool
+    {
+        try {
+            $newAvatarPath = $this->profilePicture->store("profile-pictures/{$user->id}", 'public');
+            $user->forceFill(['avatar_path' => $newAvatarPath])->save();
+
+            if ($existingAvatarPath) {
+                Storage::disk('public')->delete($existingAvatarPath);
+            }
+
+            $this->avatarPath = $newAvatarPath;
+            $this->reset('profilePicture');
+
+            return true;
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $this->addError('profilePicture', 'We could not store your profile picture right now. Please try again.');
+
+            return false;
+        }
     }
 }

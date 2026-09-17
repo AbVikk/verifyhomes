@@ -31,6 +31,8 @@ class Index extends Component
         $moveOutAvailable = Schema::hasTable('occupancy_move_out_requests');
         $complaintsAvailable = Schema::hasTable('occupancy_complaints');
         $purchasesAvailable = Schema::hasTable('property_purchases');
+        $agreementsAvailable = Schema::hasTable('tenancy_agreements');
+        $moveInReportsAvailable = Schema::hasTable('move_in_condition_reports');
 
         $occupancies = $occupanciesAvailable
             ? Occupancy::query()
@@ -40,7 +42,10 @@ class Index extends Component
                     'property.landlord.landlordProfile',
                     'moveOutRequests',
                     'complaints',
+                    'tenancyAgreement',
+                    'moveInConditionReport',
                 ])
+                ->withCount(['maintenanceRequests as maintenance_open_count' => fn ($query) => $query->where('status', '!=', 'closed')])
                 ->latest('started_at')
                 ->get()
             : new Collection();
@@ -71,6 +76,8 @@ class Index extends Component
             'occupancies' => $occupancies,
             'purchasesAvailable' => $purchasesAvailable,
             'purchases' => $purchases,
+            'agreementsAvailable' => $agreementsAvailable,
+            'moveInReportsAvailable' => $moveInReportsAvailable,
         ])->layout('layouts.dashboard-shell', $this->tenantShell('My Stays'));
     }
 

@@ -103,6 +103,28 @@ class ShellAndPaymentsWorkspaceTest extends TestCase
             ->assertDontSee('<nav x-data="{ open: false }" class="bg-white border-b border-gray-100">', false);
     }
 
+    public function test_workspace_shells_render_a_closed_mobile_drawer_and_desktop_only_collapse_control(): void
+    {
+        $tenant = $this->createTenant('mobile-shell-tenant@example.com');
+        $landlord = $this->createLandlord('mobile-shell-landlord@example.com');
+        $admin = $this->createRoleUser('admin', 'mobile-shell-admin@example.com');
+
+        foreach ([
+            [$tenant, route('tenant.dashboard'), 'tenant'],
+            [$landlord, route('landlord.dashboard'), 'landlord'],
+            [$admin, route('admin.dashboard'), 'admin'],
+        ] as [$user, $route, $shellKey]) {
+            $this->actingAs($user)->get($route)
+                ->assertOk()
+                ->assertSee('data-admin-shell-key="'.$shellKey.'"', false)
+                ->assertSee('data-admin-sidebar', false)
+                ->assertSee('aria-hidden="true"', false)
+                ->assertSee('data-admin-sidebar-open', false)
+                ->assertSee('aria-expanded="false"', false)
+                ->assertSee('admin-topbar-toggle hidden lg:inline-flex', false);
+        }
+    }
+
     public function test_admin_payments_workspace_renders_and_is_protected(): void
     {
         $admin = $this->createRoleUser('admin');
@@ -126,7 +148,10 @@ class ShellAndPaymentsWorkspaceTest extends TestCase
             ->assertOk()
             ->assertSee('Platform payment transactions')
             ->assertSee($transaction->reference)
-            ->assertSee('Provider checkout finished, but VerifyHomes is still waiting for final confirmation.');
+            ->assertSee('Provider checkout finished, but VerifyHomes is still waiting for final confirmation.')
+            ->assertSee('Booking fee')
+            ->assertSee('VerifyHomes revenue')
+            ->assertSee('Landlord payout');
 
         $this->actingAs($tenant)->get(route('admin.payments.index'))->assertForbidden();
         $this->actingAs($landlord)->get(route('admin.payments.index'))->assertForbidden();
@@ -162,6 +187,48 @@ class ShellAndPaymentsWorkspaceTest extends TestCase
         $response->assertSee('Rent payment');
         $response->assertSee('Rent checkout started. The tenant may still need to finish the provider step.');
         $response->assertSee($transaction->reference);
+        $response->assertSee('Rent');
+        $response->assertSee('Platform fee');
+        $response->assertSee('Landlord payout');
+    }
+
+    public function test_admin_payment_amount_labels_identify_house_and_land_purchases(): void
+    {
+        $admin = $this->createRoleUser('admin', 'purchase-label-admin@example.com');
+        $tenant = $this->createTenant('purchase-label-tenant@example.com');
+        $landlord = $this->createLandlord('purchase-label-landlord@example.com');
+        $property = $this->createProperty($landlord, [
+            'listing_intent' => 'for_sale',
+            'title' => 'Purchase Label Property',
+        ]);
+
+        PaymentTransactionRecorder::createPending([
+            'payer_id' => $tenant->id,
+            'property_id' => $property->id,
+            'transaction_type' => 'house_purchase_payment',
+            'gross_amount' => 900000,
+            'platform_fee_percentage' => 10,
+            'status' => 'pending',
+            'provider' => 'stub',
+        ]);
+        PaymentTransactionRecorder::createPending([
+            'payer_id' => $tenant->id,
+            'property_id' => $property->id,
+            'transaction_type' => 'land_purchase_payment',
+            'gross_amount' => 1200000,
+            'platform_fee_percentage' => 10,
+            'status' => 'pending',
+            'provider' => 'stub',
+            'metadata' => ['units_reserved' => 2],
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.payments.index'))
+            ->assertOk()
+            ->assertSee('House purchase payment')
+            ->assertSee('Land purchase payment (2 units)')
+            ->assertSee('Purchase amount')
+            ->assertSee('Platform fee')
+            ->assertSee('Landlord payout');
     }
 
     public function test_admin_payments_workspace_redirects_guests_to_login(): void

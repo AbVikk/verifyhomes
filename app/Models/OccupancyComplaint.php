@@ -12,6 +12,7 @@ class OccupancyComplaint extends Model
 
     protected $fillable = [
         'occupancy_id',
+        'maintenance_request_id',
         'tenant_id',
         'category',
         'description',

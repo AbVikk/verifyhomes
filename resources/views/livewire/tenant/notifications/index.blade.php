@@ -5,6 +5,12 @@
                 <p class="admin-eyebrow">Notifications</p>
                 <h2 class="admin-panel-title">Your latest updates</h2>
                 <p class="admin-panel-copy">Payment confirmations, move-out requests, and support updates all appear here.</p>
+                @if ($notificationsAvailable && $notifications->contains(fn ($notification) => ! $notification->read_at))
+                    <form method="POST" action="{{ route('notifications.mark-all-read') }}" class="pt-2">
+                        @csrf
+                        <button type="submit" class="admin-inline-link">Mark all as read</button>
+                    </form>
+                @endif
             </div>
         </x-admin.panel>
 
@@ -23,7 +29,7 @@
         @else
             <div class="space-y-4">
                 @foreach ($notifications as $notification)
-                    <x-admin.panel>
+                    <x-admin.panel class="{{ $notification->read_at ? '' : 'border-sky-200 bg-sky-50' }}" data-notification-state="{{ $notification->read_at ? 'read' : 'unread' }}">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                                 <p class="text-sm font-semibold text-slate-900">{{ $notification->title }}</p>
@@ -37,7 +43,7 @@
                                     {{ $notification->read_at ? 'Read' : 'Unread' }}
                                 </x-status-chip>
                                 @if ($notification->link)
-                                    <a href="{{ $notification->link }}" class="admin-inline-link">Open</a>
+                                    <a href="{{ route('notifications.open', $notification) }}" class="admin-inline-link">Open</a>
                                 @endif
                             </div>
                         </div>

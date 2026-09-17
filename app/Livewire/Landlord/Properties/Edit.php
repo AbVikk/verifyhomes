@@ -24,7 +24,7 @@ class Edit extends Component
     {
         abort_unless($property->landlord_id === $this->currentUserId(), 403);
 
-        $this->property = $property->load(['images', 'documents'])->loadCount([
+        $this->property = $property->load(['images', 'documents', 'rentPlans'])->loadCount([
             'inspectionRequests as open_inspection_requests_count' => fn ($query) => $query->open(),
             'inspectionRequests as scheduled_inspection_requests_count' => fn ($query) => $query->where('status', InspectionRequestOptions::STATUS_SCHEDULED),
         ]);

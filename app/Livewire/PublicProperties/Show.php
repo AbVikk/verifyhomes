@@ -150,7 +150,7 @@ class Show extends Component
 
         return view('livewire.public-properties.show-public', [
             'property' => $this->property,
-        ])->layout('layouts.app');
+        ])->layout('layouts.public');
     }
 
     public function formatMoney(float|int|string|null $amount): string

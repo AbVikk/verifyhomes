@@ -279,6 +279,8 @@ class ConnectedWorkflowTest extends TestCase
             ->assertSee('Paid')
             ->assertSee('View stay')
             ->assertDontSee("Platform fee: {$platformFee} (20.00%). Landlord net snapshot: {$landlordNet}.")
+            ->assertDontSee('Platform fee')
+            ->assertDontSee('Landlord payout')
             ->assertDontSee($brokenNaira)
             ->assertDontSee('Rent payment confirmed. Listing availability has been reduced by 1 unit.');
 
@@ -286,7 +288,9 @@ class ConnectedWorkflowTest extends TestCase
             ->get(route('landlord.payments.index', ['reference' => $transaction->reference]))
             ->assertOk()
             ->assertSee('Paid money tied to your listings')
-            ->assertSee("Platform fee: {$platformFee} (20.00%). Landlord net snapshot: {$landlordNet}.")
+            ->assertSee('Rent paid: '.Currency::format($property->rent_amount, 'NGN').'. Landlord amount: '.$landlordNet.'.')
+            ->assertSee('Rent paid')
+            ->assertSee('Landlord amount')
             ->assertDontSee($brokenNaira)
             ->assertSee('Rent payment confirmed. Listing availability has been reduced by 1 unit.');
 
@@ -294,7 +298,12 @@ class ConnectedWorkflowTest extends TestCase
             ->get(route('admin.payments.index', ['reference' => $transaction->reference]))
             ->assertOk()
             ->assertSee('Platform payment transactions')
-            ->assertSee("Platform fee: {$platformFee} (20.00%). Net amount: {$landlordNet}.")
+            ->assertSee('Rent amount: '.Currency::format($property->rent_amount, 'NGN').". Platform fee: {$platformFee} (20.00%). Landlord payout: {$landlordNet}.")
+            ->assertSee('Rent')
+            ->assertSee('Platform fee')
+            ->assertSee('Landlord payout')
+            ->assertSee('Awaiting payout')
+            ->assertDontSee('Awaiting internal landlord payout recording. No bank transfer is initiated by VerifyHomes here.')
             ->assertDontSee($brokenNaira)
             ->assertSee('Rent payment confirmed. Listing availability has been reduced by 1 unit.');
 

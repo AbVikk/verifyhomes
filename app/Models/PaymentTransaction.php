@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Support\PlatformFeeCalculator;
+use App\Support\RentalPeriod;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PaymentTransaction extends Model
@@ -62,8 +64,32 @@ class PaymentTransaction extends Model
         return $this->belongsTo(InspectionRequest::class);
     }
 
+    public function landlordSettlements(): HasMany
+    {
+        return $this->hasMany(LandlordSettlement::class, 'transaction_id');
+    }
+
     public static function buildAmounts(float|int|string $grossAmount, ?float $percentage = null): array
     {
         return PlatformFeeCalculator::breakdown($grossAmount, $percentage);
+    }
+
+    public function rentalPeriodDays(): ?int
+    {
+        if ($this->transaction_type !== 'rent_payment') {
+            return null;
+        }
+
+        $days = (int) data_get($this->metadata, 'rental_period_days', 0);
+
+        return $days > 0 ? $days : null;
+    }
+
+    public function rentalPeriodLabel(): string
+    {
+        return RentalPeriod::label(
+            $this->rentalPeriodDays(),
+            (int) data_get($this->metadata, 'rental_period_months', 0) ?: null,
+        );
     }
 }

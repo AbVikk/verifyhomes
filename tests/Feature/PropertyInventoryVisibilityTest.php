@@ -33,7 +33,7 @@ class PropertyInventoryVisibilityTest extends TestCase
 
         $indexResponse->assertOk();
         $indexResponse->assertSee('Inventory');
-        $indexResponse->assertSee('4 available / 6 total');
+        $indexResponse->assertSee('4 / 6 available');
         $indexResponse->assertSee('2 occupied');
 
         $showResponse = $this->actingAs($admin)->get(route('admin.properties.show', $property));

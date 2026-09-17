@@ -1,7 +1,10 @@
 <div class="admin-page">
     <div class="admin-page-inner space-y-6">
         @if (session('status'))
-            <x-admin.alert>{{ session('status') }}</x-admin.alert>
+            <x-admin.alert>
+                <p class="font-semibold">Payment update</p>
+                <p class="mt-1">{{ session('status') }}</p>
+            </x-admin.alert>
         @endif
 
         <x-admin.panel>
@@ -45,6 +48,39 @@
                 <div class="admin-data-box"><p class="font-semibold text-slate-900">Inspection Booking Payments</p><p class="mt-1 text-sm text-slate-600">Fees paid to confirm an inspection booking. Separate from rent or purchase.</p></div>
             </div>
 
+            @if ($highlightedTransaction?->status === 'paid')
+                @php
+                    $isInspectionBooking = $this->isInspectionBookingPayment($highlightedTransaction);
+                    $isUpcomingRental = $highlightedTransaction->transaction_type === 'rent_payment'
+                        && data_get($highlightedTransaction->metadata, 'occupancy_update_status') === 'upcoming_reserved';
+                    $propertyTitle = $highlightedTransaction->inspectionRequest?->property?->title ?? $highlightedTransaction->property?->title ?? 'this property';
+                @endphp
+
+                <x-admin.workflow-state
+                    tone="success"
+                    label="Payment confirmed"
+                    :title="$isInspectionBooking ? 'Inspection booking confirmed' : 'Rent payment confirmed'"
+                    :copy="$isInspectionBooking
+                        ? 'Your inspection for '.$propertyTitle.' is booked for '.($highlightedTransaction->inspectionRequest?->scheduled_at?->format('M j, Y g:i A') ?? 'the scheduled time').'.'
+                        : ($isUpcomingRental
+                            ? 'Your next rental at '.$propertyTitle.' has been secured.'
+                            : 'Your payment for '.$propertyTitle.' was successful.')"
+                >
+                    <p class="mt-3 text-sm font-medium">
+                        Next step: {{ $isInspectionBooking
+                            ? 'No action is required right now. Please attend the scheduled inspection.'
+                            : ($isUpcomingRental
+                                ? 'This stay will become active after your current rental is legitimately closed.'
+                                : 'Your stay is now active.') }}
+                    </p>
+                    @if ($isInspectionBooking && $highlightedTransaction->inspectionRequest)
+                        <a href="{{ route('tenant.inspection-requests.show', ['inspectionRequestId' => $highlightedTransaction->inspectionRequest->getKey()]) }}" class="admin-button admin-button-primary mt-4 w-full sm:w-auto">View Inspection</a>
+                    @elseif ($highlightedTransaction->transaction_type === 'rent_payment')
+                        <a href="{{ route('tenant.occupancy.index') }}" class="admin-button admin-button-primary mt-4 w-full sm:w-auto">{{ $isUpcomingRental ? 'View Upcoming Stay' : 'View My Stay' }}</a>
+                    @endif
+                </x-admin.workflow-state>
+            @endif
+
             @if ($highlightedTransaction && $this->canContinueCheckout($highlightedTransaction))
                 <div class="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
                     <span class="font-medium">Your {{ strtolower($this->transactionTypeLabel($highlightedTransaction)) }} is waiting for completion.</span>
@@ -55,7 +91,7 @@
 
             <div class="hidden overflow-x-auto md:block">
                 <table class="min-w-full">
-                    <thead class="admin-table-head"><tr><th class="admin-table-head-cell">Reference</th><th class="admin-table-head-cell">Type</th><th class="admin-table-head-cell">Property / Request</th><th class="admin-table-head-cell">Amount</th><th class="admin-table-head-cell">Status</th><th class="admin-table-head-cell">Date</th><th class="admin-table-head-cell">Action</th></tr></thead>
+                    <thead class="admin-table-head"><tr><th class="admin-table-head-cell">Reference</th><th class="admin-table-head-cell">Type</th><th class="admin-table-head-cell">Property / Request</th><th class="admin-table-head-cell">Amount</th><th class="admin-table-head-cell">Rental Period</th><th class="admin-table-head-cell">Status</th><th class="admin-table-head-cell">Date</th><th class="admin-table-head-cell">Action</th></tr></thead>
                     <tbody class="admin-table-body">
                         @forelse ($transactions as $transaction)
                             <tr class="align-top">
@@ -63,7 +99,8 @@
                                 <td class="px-4 py-4 text-sm font-medium text-slate-900">{{ $this->transactionTypeLabel($transaction) }}</td>
                                 <td class="px-4 py-4 text-sm text-slate-700">{{ $transaction->inspectionRequest?->property?->title ?? $transaction->property?->title ?? 'No related record' }}</td>
                                 <td class="px-4 py-4 text-sm font-semibold text-slate-900">{{ $this->formatMoney($transaction->gross_amount, $transaction->currency) }}</td>
-                                <td class="px-4 py-4 text-sm"><span class="admin-badge admin-badge-neutral">{{ $this->statusLabel($transaction) }}</span></td>
+                                <td class="px-4 py-4 text-sm text-slate-700">{{ $transaction->rentalPeriodLabel() }}</td>
+                                <td class="px-4 py-4 text-sm"><x-admin.badge :tone="match ($transaction->status) { 'paid' => 'success', 'failed' => 'danger', 'pending' => 'warning', 'initiated' => 'info', default => 'neutral' }">{{ $this->statusLabel($transaction) }}</x-admin.badge></td>
                                 <td class="px-4 py-4 text-sm text-slate-500">{{ $transaction->created_at->format('M j, Y') }}</td>
                                 <td class="px-4 py-4 text-sm">
                                     @if ($this->canContinueCheckout($transaction))
@@ -80,7 +117,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="px-4 py-8"><x-admin.empty-state :title="$statusFilter === 'all' ? 'You do not have any payment transactions yet.' : 'No payment transactions match the current status filter.'" copy="Your inspection and property payments will appear here." /></td></tr>
+                            <tr><td colspan="8" class="px-4 py-8"><x-admin.empty-state :title="$statusFilter === 'all' ? 'You do not have any payment transactions yet.' : 'No payment transactions match the current status filter.'" copy="Your inspection and property payments will appear here." /></td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -89,9 +126,10 @@
             <div class="space-y-4 md:hidden">
                 @forelse ($transactions as $transaction)
                     <div class="admin-subsurface space-y-3 p-4">
-                        <div class="flex items-start justify-between gap-3"><p class="font-semibold text-slate-900">{{ $this->transactionTypeLabel($transaction) }}</p><span class="admin-badge admin-badge-neutral">{{ $this->statusLabel($transaction) }}</span></div>
+                        <div class="flex items-start justify-between gap-3"><p class="font-semibold text-slate-900">{{ $this->transactionTypeLabel($transaction) }}</p><x-admin.badge :tone="match ($transaction->status) { 'paid' => 'success', 'failed' => 'danger', 'pending' => 'warning', 'initiated' => 'info', default => 'neutral' }">{{ $this->statusLabel($transaction) }}</x-admin.badge></div>
                         <p class="text-sm text-slate-600">{{ $transaction->inspectionRequest?->property?->title ?? $transaction->property?->title ?? 'No related record' }}</p>
                         <p class="text-lg font-semibold text-slate-950">{{ $this->formatMoney($transaction->gross_amount, $transaction->currency) }}</p>
+                        <p class="text-sm text-slate-600">Rental Period: {{ $transaction->rentalPeriodLabel() }}</p>
                         <p class="text-xs text-slate-500">{{ $transaction->created_at->format('M j, Y') }} · {{ $transaction->reference }}</p>
                         @if ($this->canContinueCheckout($transaction))
                             <a href="{{ data_get($transaction->metadata, 'checkout_url') }}" target="_blank" rel="noopener noreferrer" class="admin-inline-link">Continue checkout</a>

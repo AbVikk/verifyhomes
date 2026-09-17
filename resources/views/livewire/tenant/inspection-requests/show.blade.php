@@ -42,28 +42,55 @@
                         </div>
                     </x-admin.panel>
 
-                    @if ($inspectionRequest->scheduleNeedsTenantResponse())
-                        <x-admin.panel>
-                            <div class="space-y-4">
-                                <div>
-                                    <p class="admin-eyebrow">Your response needed</p>
-                                    <h3 class="admin-panel-title">Inspection date proposed</h3>
-                                    <p class="admin-panel-copy">VerifyHomes proposed {{ $inspectionRequest->scheduled_at?->format('l, M j, Y \a\t g:i A') }} for {{ $inspectionRequest->property?->title }}. Confirm this time before paying the booking fee.</p>
-                                </div>
+                    @if ($inspectionRequest->status === 'requested' && ! $inspectionRequest->scheduled_at)
+                        <x-admin.workflow-state
+                            tone="waiting"
+                            label="Waiting for VerifyHomes"
+                            title="Inspection request received"
+                            copy="VerifyHomes is reviewing your request."
+                        >
+                            <p class="mt-3 text-sm font-medium">Next step: wait for a proposed inspection schedule. No action is required right now.</p>
+                        </x-admin.workflow-state>
+                    @elseif ($inspectionRequest->scheduleIsAcceptedOrLegacy() && ! $hasPaidInspectionFee && ! $showsOutcome)
+                        <x-admin.workflow-state
+                            tone="action"
+                            label="Action required"
+                            title="Complete your booking"
+                            copy="Your inspection schedule is accepted. Complete the booking fee to confirm the visit."
+                        >
+                            <a href="#booking-fee" class="admin-button admin-button-primary mt-4 w-full sm:w-auto">Pay Booking Fee</a>
+                        </x-admin.workflow-state>
+                    @elseif ($hasPaidInspectionFee && ! $showsOutcome)
+                        <x-admin.workflow-state
+                            tone="success"
+                            label="Inspection booked"
+                            title="Your visit is confirmed"
+                            :copy="'Scheduled for '.($inspectionRequest->scheduled_at?->format('M j, Y g:i A') ?? 'the confirmed time').'.'"
+                        >
+                            <p class="mt-3 text-sm font-medium">No action is required right now. Please attend the inspection at the scheduled time.</p>
+                        </x-admin.workflow-state>
+                    @endif
 
-                                <div class="flex flex-wrap gap-3">
-                                    <button wire:click="acceptSchedule" wire:loading.attr="disabled" wire:target="acceptSchedule" type="button" class="admin-button admin-button-primary">
-                                        <span wire:loading.remove wire:target="acceptSchedule">Accept schedule</span>
-                                        <span wire:loading wire:target="acceptSchedule">Accepting...</span>
-                                    </button>
-                                    <button type="button" x-data x-on:click="$dispatch('open-modal', 'request-another-date')" class="admin-button admin-button-secondary">Request another date</button>
-                                    <button wire:click="cancelRequest" wire:loading.attr="disabled" wire:target="cancelRequest" type="button" class="admin-button admin-button-secondary">
-                                        <span wire:loading.remove wire:target="cancelRequest">Cancel request</span>
-                                        <span wire:loading wire:target="cancelRequest">Cancelling...</span>
-                                    </button>
-                                </div>
+                    @if ($inspectionRequest->scheduleNeedsTenantResponse())
+                        <x-admin.workflow-state
+                            tone="action"
+                            label="Action required"
+                            title="Review your inspection schedule"
+                            :copy="'VerifyHomes proposed '.$inspectionRequest->scheduled_at?->format('l, M j, Y \\a\\t g:i A').' for '.$inspectionRequest->property?->title.'. Confirm this time before paying the booking fee.'"
+                        >
+                            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+
+                                <button wire:click="acceptSchedule" wire:loading.attr="disabled" wire:target="acceptSchedule" type="button" class="admin-button admin-button-primary w-full sm:w-auto">
+                                    <span wire:loading.remove wire:target="acceptSchedule">Accept schedule</span>
+                                    <span wire:loading wire:target="acceptSchedule">Accepting...</span>
+                                </button>
+                                <button type="button" x-data x-on:click="$dispatch('open-modal', 'request-another-date')" class="admin-button admin-button-secondary w-full sm:w-auto">Request another date</button>
+                                <button wire:click="cancelRequest" wire:loading.attr="disabled" wire:target="cancelRequest" type="button" class="admin-button admin-button-quiet w-full sm:w-auto">
+                                    <span wire:loading.remove wire:target="cancelRequest">Cancel request</span>
+                                    <span wire:loading wire:target="cancelRequest">Cancelling...</span>
+                                </button>
                             </div>
-                        </x-admin.panel>
+                        </x-admin.workflow-state>
                     @endif
 
                     <x-admin.panel>
@@ -146,14 +173,8 @@
                     </x-admin.panel>
 
                     @if ($showsOutcome && $inspectionRequest->outcome_type === 'inspected')
-                        <x-admin.panel>
+                        <x-admin.workflow-state tone="completed" label="Inspection outcome" title="Inspection completed" copy="You've completed your inspection. If you're satisfied with this property, you can continue to secure it.">
                             <div class="space-y-4">
-                                <div>
-                                    <p class="admin-eyebrow">Next step</p>
-                                    <h3 class="admin-panel-title">Inspection completed</h3>
-                                    <p class="admin-panel-copy">You've completed your inspection. If you're satisfied with this property, you can continue to secure it.</p>
-                                </div>
-
                                 @if ($inspectionRequest->property?->available_units <= 0)
                                     <p class="text-sm text-slate-700">This property is no longer available, so payment cannot continue.</p>
                                 @elseif ($inspectionRequest->property?->listing_intent === 'for_rent')
@@ -177,10 +198,10 @@
                                     <a href="{{ route('properties.show', $inspectionRequest->property) }}" class="admin-button admin-button-secondary w-full sm:w-auto">View lease next step</a>
                                 @endif
                             </div>
-                        </x-admin.panel>
+                        </x-admin.workflow-state>
                     @endif
 
-                    <x-admin.panel>
+                    <x-admin.panel id="booking-fee">
                         <div class="space-y-4">
                             <div>
                                 <p class="admin-eyebrow">Payment</p>
@@ -224,7 +245,9 @@
                                 </dl>
 
                                 <div class="flex flex-wrap gap-3">
-                                    @if (! $hasPaidInspectionFee && $inspectionRequest->scheduleIsAcceptedOrLegacy())
+                                    @if (! $hasPaidInspectionFee && $inspectionRequest->scheduleIsAcceptedOrLegacy() && ! $tenantIsVerified)
+                                        <div class="admin-alert admin-alert-warning"><p class="font-semibold">Verify your identity to continue</p><p class="mt-1">Identity verification is required before booking your inspection.</p><a href="{{ route('tenant.verification') }}" class="admin-inline-link">Verify identity</a></div>
+                                    @elseif (! $hasPaidInspectionFee && $inspectionRequest->scheduleIsAcceptedOrLegacy())
                                         <form method="POST" action="{{ route('tenant.inspection-requests.payments.store', $inspectionRequest) }}" class="space-y-4" data-processing-form>
                                             @csrf
 
@@ -316,7 +339,7 @@
             </div>
         @endif
 
-        <x-modal name="inspection-payment-terms" maxWidth="2xl">
+        <x-modal name="inspection-payment-terms" maxWidth="3xl">
             <div class="admin-modal-panel" data-terms-gate-modal-content="{{ $this->inspectionTermsGate() }}">
                 <div class="admin-modal-header">
                     <h3 class="text-lg font-semibold text-slate-950">Inspection terms</h3>
@@ -329,8 +352,8 @@
                     <p>Successful payment moves the request into scheduling and verification follow-through rather than instant visit confirmation.</p>
                     <p>Keep this modal open and read it fully before you accept the checkbox on the form.</p>
                     <div class="admin-callout">
-                        <label class="flex items-start gap-3 text-sm text-slate-700">
-                            <input type="checkbox" data-terms-gate-checkbox class="admin-checkbox mt-1" />
+                        <label for="inspection-payment-terms-checkbox" class="flex items-start gap-3 text-sm text-slate-700">
+                            <input id="inspection-payment-terms-checkbox" type="checkbox" data-terms-gate-checkbox class="admin-checkbox mt-1" />
                             <span>I have read and accept the inspection terms before paying the booking fee.</span>
                         </label>
                         <p class="admin-help" data-terms-gate-modal-status>

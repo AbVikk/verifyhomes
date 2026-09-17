@@ -155,6 +155,8 @@ class TermsModalFlowTest extends TestCase
 
         TenantProfile::create([
             'user_id' => $tenant->id,
+            'verification_status' => 'verified',
+            'verified_at' => now(),
         ]);
 
         return $tenant;

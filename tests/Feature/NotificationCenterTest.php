@@ -48,6 +48,180 @@ class NotificationCenterTest extends TestCase
         $response->assertSee('Unread');
     }
 
+    public function test_opening_notifications_marks_only_the_current_users_copy_read_before_redirecting(): void
+    {
+        $tenant = $this->createTenant('notification-count-tenant@example.com');
+        $notifications = collect(range(1, 7))->map(fn (int $number) => $this->createNotification(
+            $tenant,
+            "Tenant update {$number}",
+            route('tenant.dashboard'),
+        ));
+
+        $this->actingAs($tenant)->get(route('tenant.dashboard'))
+            ->assertOk()
+            ->assertSee('7 unread updates')
+            ->assertSee('data-notification-unread-badge', false);
+
+        $this->actingAs($tenant)->get(route('notifications.open', $notifications->get(0)))
+            ->assertRedirect(route('tenant.dashboard'));
+        $this->assertNotNull($notifications->get(0)->fresh()->read_at);
+
+        $this->actingAs($tenant)->get(route('tenant.dashboard'))
+            ->assertSee('6 unread updates');
+
+        $this->actingAs($tenant)->get(route('notifications.open', $notifications->get(1)))
+            ->assertRedirect(route('tenant.dashboard'));
+
+        $this->actingAs($tenant)->get(route('tenant.dashboard'))
+            ->assertSee('5 unread updates');
+
+        $this->actingAs($tenant)->get(route('notifications.open', $notifications->get(0)))
+            ->assertRedirect(route('tenant.dashboard'));
+        $this->assertSame(5, UserNotification::query()->forUser($tenant->id)->unread()->count());
+
+        foreach ($notifications->slice(2) as $notification) {
+            $this->actingAs($tenant)->get(route('notifications.open', $notification));
+        }
+
+        $this->actingAs($tenant)->get(route('tenant.dashboard'))
+            ->assertSee('All caught up')
+            ->assertDontSee('data-notification-unread-badge', false);
+    }
+
+    public function test_dropdown_orders_unread_before_read_and_uses_read_time_for_read_items(): void
+    {
+        $tenant = $this->createTenant('notification-order-tenant@example.com');
+
+        Carbon::setTestNow('2026-09-10 09:00:00');
+        $readOlder = $this->createNotification($tenant, 'Read older', route('tenant.dashboard'));
+        $readOlder->update(['read_at' => now()->subMinutes(2)]);
+        $unreadOlder = $this->createNotification($tenant, 'Unread older', route('tenant.dashboard'));
+
+        Carbon::setTestNow('2026-09-10 09:01:00');
+        $readNewest = $this->createNotification($tenant, 'Read newest', route('tenant.dashboard'));
+        $readNewest->update(['read_at' => now()->addMinutes(2)]);
+        $unreadNewest = $this->createNotification($tenant, 'Unread newest', route('tenant.dashboard'));
+
+        $this->actingAs($tenant)->get(route('tenant.dashboard'))
+            ->assertSeeInOrder([
+                'data-notification-group="unread"',
+                'Unread newest',
+                'Unread older',
+                'data-notification-group="read"',
+                'Read newest',
+                'Read older',
+            ], false);
+
+        Carbon::setTestNow('2026-09-10 09:05:00');
+        $this->actingAs($tenant)->get(route('notifications.open', $unreadNewest))
+            ->assertRedirect(route('tenant.dashboard'));
+
+        $this->actingAs($tenant)->get(route('tenant.dashboard'))
+            ->assertSeeInOrder([
+                'data-notification-group="unread"',
+                'Unread older',
+                'data-notification-group="read"',
+                'Unread newest',
+                'Read newest',
+                'Read older',
+            ], false)
+            ->assertSee('data-notification-unread-badge', false);
+
+        $this->actingAs($tenant)
+            ->from(route('tenant.dashboard'))
+            ->post(route('notifications.mark-all-read'))
+            ->assertRedirect(route('tenant.dashboard'));
+
+        $this->actingAs($tenant)->get(route('tenant.dashboard'))
+            ->assertSee('data-notification-group="read"', false)
+            ->assertDontSee('data-notification-group="unread"', false)
+            ->assertDontSee('data-notification-unread-badge', false)
+            ->assertSee('Unread older');
+        $this->assertSame(4, UserNotification::query()->forUser($tenant->id)->count());
+
+        Carbon::setTestNow();
+    }
+
+    public function test_shared_notification_dropdown_renders_for_tenant_landlord_admin_and_staff(): void
+    {
+        $tenant = $this->createTenant('shared-dropdown-tenant@example.com');
+        $landlord = $this->createLandlord('shared-dropdown-landlord@example.com');
+        $admin = $this->createRoleUser('admin', 'shared-dropdown-admin@example.com');
+        $staff = $this->createRoleUser('staff', 'shared-dropdown-staff@example.com');
+
+        foreach ([
+            [$tenant, 'Tenant dropdown update', route('tenant.dashboard')],
+            [$landlord, 'Landlord dropdown update', route('landlord.dashboard')],
+            [$admin, 'Admin dropdown update', route('admin.dashboard')],
+            [$staff, 'Staff dropdown update', route('admin.dashboard')],
+        ] as [$user, $title, $dashboardRoute]) {
+            $this->createNotification($user, $title, $dashboardRoute);
+
+            $this->actingAs($user)->get($dashboardRoute)
+                ->assertOk()
+                ->assertSee('data-admin-notifications-menu', false)
+                ->assertSee('data-notification-group="unread"', false)
+                ->assertSee('Mark all as read')
+                ->assertSee('View all notifications');
+        }
+    }
+
+    public function test_notification_center_uses_the_shared_open_route_and_marks_all_only_for_current_user(): void
+    {
+        $tenant = $this->createTenant('mark-all-tenant@example.com');
+        $landlord = $this->createLandlord('mark-all-landlord@example.com');
+        $tenantNotification = $this->createNotification($tenant, 'Tenant unread update', route('tenant.dashboard'));
+        $this->createNotification($tenant, 'Tenant second unread update', route('tenant.dashboard'));
+        $landlordNotification = $this->createNotification($landlord, 'Landlord unread update', route('landlord.dashboard'));
+
+        $this->actingAs($tenant)->get(route('tenant.notifications.index'))
+            ->assertOk()
+            ->assertSee('Mark all as read')
+            ->assertSee(route('notifications.open', $tenantNotification), false)
+            ->assertSee('data-notification-state="unread"', false);
+
+        $this->actingAs($tenant)
+            ->from(route('tenant.notifications.index'))
+            ->post(route('notifications.mark-all-read'))
+            ->assertRedirect(route('tenant.notifications.index'));
+
+        $this->assertSame(0, UserNotification::query()->forUser($tenant->id)->unread()->count());
+        $this->assertNull($landlordNotification->fresh()->read_at);
+
+        $this->actingAs($tenant)->get(route('tenant.notifications.index'))
+            ->assertDontSee('Mark all as read')
+            ->assertDontSee('data-notification-state="unread"', false)
+            ->assertSee('data-notification-state="read"', false);
+    }
+
+    public function test_notification_opening_is_owner_scoped_safe_and_independent_for_each_role(): void
+    {
+        $tenant = $this->createTenant('open-tenant@example.com');
+        $landlord = $this->createLandlord('open-landlord@example.com');
+        $admin = $this->createRoleUser('admin', 'open-admin@example.com');
+        $staff = $this->createRoleUser('staff', 'open-staff@example.com');
+        $tenantNotification = $this->createNotification($tenant, 'Tenant update', route('tenant.dashboard'));
+        $landlordNotification = $this->createNotification($landlord, 'Landlord update', route('landlord.dashboard'));
+        $adminNotification = $this->createNotification($admin, 'Admin update', route('admin.dashboard'));
+        $staffNotification = $this->createNotification($staff, 'Staff update', route('admin.dashboard'));
+        $externalNotification = $this->createNotification($tenant, 'Unsafe destination', 'https://example.test/not-allowed');
+
+        $this->actingAs($tenant)->get(route('notifications.open', $landlordNotification))->assertNotFound();
+        $this->assertNull($landlordNotification->fresh()->read_at);
+
+        $this->actingAs($tenant)->get(route('notifications.open', $tenantNotification))->assertRedirect(route('tenant.dashboard'));
+        $this->actingAs($landlord)->get(route('notifications.open', $landlordNotification))->assertRedirect(route('landlord.dashboard'));
+        $this->actingAs($admin)->get(route('notifications.open', $adminNotification))->assertRedirect(route('admin.dashboard'));
+        $this->actingAs($staff)->get(route('notifications.open', $staffNotification))->assertRedirect(route('admin.dashboard'));
+        $this->actingAs($tenant)->get(route('notifications.open', $externalNotification))->assertRedirect(route('tenant.dashboard'));
+
+        $this->assertNotNull($tenantNotification->fresh()->read_at);
+        $this->assertNotNull($landlordNotification->fresh()->read_at);
+        $this->assertNotNull($adminNotification->fresh()->read_at);
+        $this->assertNotNull($staffNotification->fresh()->read_at);
+        $this->assertNotNull($externalNotification->fresh()->read_at);
+    }
+
     public function test_rent_reminder_command_is_scheduled_daily(): void
     {
         $exitCode = Artisan::call('schedule:list');
@@ -75,14 +249,8 @@ class NotificationCenterTest extends TestCase
             'title' => 'Your rent is due in 60 days',
             'category' => 'rent_reminder:tenant:1:due_in_60_days:2026-08-03',
         ]);
-        $this->assertDatabaseHas('user_notifications', [
-            'user_id' => $landlord->id,
-            'title' => 'Tenant rent due in 60 days',
-        ]);
-        $this->assertDatabaseHas('user_notifications', [
-            'user_id' => $admin->id,
-            'title' => 'Upcoming rent due in 60 days',
-        ]);
+        $this->assertDatabaseMissing('user_notifications', ['user_id' => $landlord->id]);
+        $this->assertDatabaseMissing('user_notifications', ['user_id' => $admin->id]);
 
         Carbon::setTestNow();
     }
@@ -199,7 +367,7 @@ class NotificationCenterTest extends TestCase
         Artisan::call('rent-reminders:generate');
         Artisan::call('rent-reminders:generate');
 
-        $this->assertSame(3, UserNotification::query()->count());
+        $this->assertSame(2, UserNotification::query()->count());
         $this->assertSame(1, UserNotification::query()->where('user_id', $tenant->id)->count());
         $this->assertSame(1, UserNotification::query()->where('user_id', $landlord->id)->count());
 
@@ -235,8 +403,7 @@ class NotificationCenterTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.notifications.index'))
             ->assertOk()
-            ->assertSee('Upcoming rent due in 7 days')
-            ->assertSee('Visible Reminder Home')
+            ->assertDontSee('Upcoming rent due in 7 days')
             ->assertSee('Operational updates');
 
         Carbon::setTestNow();
@@ -254,6 +421,17 @@ class NotificationCenterTest extends TestCase
         $user->assignRole($role);
 
         return $user;
+    }
+
+    protected function createNotification(User $user, string $title, ?string $link): UserNotification
+    {
+        return UserNotification::create([
+            'user_id' => $user->id,
+            'title' => $title,
+            'body' => 'Notification body.',
+            'category' => 'test_notification',
+            'link' => $link,
+        ]);
     }
 
     protected function createTenant(?string $email = null): User

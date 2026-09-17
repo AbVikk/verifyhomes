@@ -10,7 +10,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Initiated</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['initiated'] }}</p>
+                    <x-admin.kpi-value :value="$summary['initiated']" />
                     <p class="text-sm text-slate-600">Checkout started, but the payer may still need to finish the provider step.</p>
                 </div>
             </x-admin.panel>
@@ -18,7 +18,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Awaiting verification</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['pending'] }}</p>
+                    <x-admin.kpi-value :value="$summary['pending']" />
                     <p class="text-sm text-slate-600">Provider flow is done, but final confirmation is still pending.</p>
                 </div>
             </x-admin.panel>
@@ -26,7 +26,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Paid</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['paid'] }}</p>
+                    <x-admin.kpi-value :value="$summary['paid']" />
                     <p class="text-sm text-slate-600">Verified payments that can move the workflow forward.</p>
                 </div>
             </x-admin.panel>
@@ -34,7 +34,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Failed</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['failed'] }}</p>
+                    <x-admin.kpi-value :value="$summary['failed']" />
                     <p class="text-sm text-slate-600">Transactions that failed or came back with an error.</p>
                 </div>
             </x-admin.panel>
@@ -42,7 +42,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Verified volume</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $this->formatMoney($summary['gross']) }}</p>
+                    <x-admin.kpi-value :value="\App\Support\Currency::formatCompact($summary['gross'])" :exact="$this->formatMoney($summary['gross'])" />
                     <p class="text-sm text-slate-600">Gross amount from transactions already marked paid.</p>
                 </div>
             </x-admin.panel>
@@ -54,7 +54,7 @@
                     <div>
                         <p class="admin-eyebrow">Payments</p>
                         <h2 class="admin-panel-title">Platform payment transactions</h2>
-                        <p class="admin-panel-copy">Review rent and inspection payment state, payer context, related records, provider details, and what should happen next.</p>
+                        <p class="admin-panel-copy">Track verified payments and landlord settlement records. Recording a payout does not initiate a bank transfer.</p>
                     </div>
 
                     @if ($paymentsAvailable)
@@ -112,6 +112,7 @@
                                     <th class="admin-table-head-cell">Payer</th>
                                     <th class="admin-table-head-cell">Related record</th>
                                     <th class="admin-table-head-cell">Amount</th>
+                                    <th class="admin-table-head-cell">Rental Period</th>
                                     <th class="admin-table-head-cell">Status</th>
                                     <th class="admin-table-head-cell">Logged</th>
                                 </tr>
@@ -120,45 +121,48 @@
                                 @forelse ($transactions as $transaction)
                                     <tr class="align-top">
                                         <td class="px-4 py-4 text-sm text-slate-700">
-                                            <p class="font-mono text-xs text-slate-900">{{ $transaction->reference }}</p>
+                                            <p class="font-mono text-xs text-slate-900" title="{{ $transaction->reference }}">{{ str($transaction->reference)->limit(18) }}</p>
                                             <p class="mt-1 text-xs text-slate-500">{{ $this->providerLabel($transaction->provider) }}</p>
-                                            @if ($transaction->provider_reference)
-                                                <p class="mt-1 text-xs text-slate-500">Provider ref: {{ $transaction->provider_reference }}</p>
-                                            @endif
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
                                             <p class="font-medium text-slate-900">{{ $this->transactionTypeSummary($transaction) }}</p>
-                                            <p class="mt-1 text-slate-500">{{ $transaction->metadata['checkout_context'] ?? 'General payment record' }}</p>
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
                                             <p class="font-medium text-slate-900">{{ $transaction->payer?->name ?: 'No payer record' }}</p>
-                                            <p class="mt-1 text-slate-500">{{ $transaction->payer?->email ?: 'No email available' }}</p>
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
                                             @if ($transaction->inspectionRequest)
-                                                <p class="font-medium text-slate-900">Inspection request</p>
-                                                <p class="mt-1 text-slate-600">{{ $transaction->inspectionRequest->property?->title ?? 'Property record' }}</p>
+                                                <p class="font-medium text-slate-900">{{ $transaction->inspectionRequest->property?->title ?? 'Inspection request' }}</p>
                                                 <a href="{{ route('admin.inspection-requests.show', ['inspectionRequestId' => $transaction->inspectionRequest->getKey()]) }}" class="admin-inline-link">Open request</a>
                                             @elseif ($transaction->property)
-                                                <p class="font-medium text-slate-900">Property</p>
-                                                <p class="mt-1 text-slate-600">{{ $transaction->property->title }}</p>
+                                                <p class="font-medium text-slate-900">{{ $transaction->property->title }}</p>
                                                 <a href="{{ route('admin.properties.show', $transaction->property) }}" class="admin-inline-link">Open property</a>
                                             @else
                                                 <p class="text-slate-600">No related record</p>
                                             @endif
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
+                                            <p class="text-xs text-slate-500">{{ $this->amountLabel($transaction) }}</p>
                                             <p class="font-medium text-slate-900">{{ $this->formatMoney($transaction->gross_amount, $transaction->currency) }}</p>
-                                            <p class="mt-1 text-xs text-slate-500">{{ $this->platformFeeSummary($transaction) }}</p>
+                                            @if ($transaction->transaction_type === 'inspection_booking_fee')
+                                                <p class="mt-1 text-xs text-slate-500">VerifyHomes revenue</p>
+                                                <p class="text-xs text-slate-700">{{ $this->formatMoney($transaction->gross_amount, $transaction->currency) }}</p>
+                                                <p class="mt-1 text-xs text-slate-500">Landlord payout</p>
+                                                <p class="text-xs text-slate-700">{{ $this->formatMoney(0, $transaction->currency) }}</p>
+                                            @else
+                                                <p class="mt-1 text-xs text-slate-500">Platform fee</p>
+                                                <p class="text-xs text-slate-700">{{ $this->formatMoney($transaction->platform_fee_amount, $transaction->currency) }}</p>
+                                                <p class="mt-1 text-xs text-slate-500">Landlord payout</p>
+                                                <p class="text-xs text-slate-700">{{ $this->formatMoney($transaction->net_amount, $transaction->currency) }}</p>
+                                            @endif
                                         </td>
+                                        <td class="px-4 py-4 text-sm text-slate-700">{{ $transaction->rentalPeriodLabel() }}</td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
                                             <span class="admin-badge admin-badge-neutral">{{ str($transaction->status)->headline() }}</span>
-                                            <p class="mt-2 text-slate-500">{{ $this->statusSummary($transaction) }}</p>
-                                            @if ($this->workflowImpactSummary($transaction))
-                                                <p class="mt-2 text-slate-600">{{ $this->workflowImpactSummary($transaction) }}</p>
-                                            @endif
-                                            @if ($this->landlordSettlementSummary($transaction))
-                                                <p class="mt-2 text-slate-600">{{ $this->landlordSettlementSummary($transaction) }}</p>
+                                            @if ($transaction->transaction_type === 'inspection_booking_fee')
+                                                <p class="mt-2 text-xs text-slate-500">No payout required</p>
+                                            @elseif ($transaction->status === 'paid')
+                                                <p class="mt-2 text-xs text-slate-500">{{ $transaction->landlord_settlement_status === 'recorded_paid' ? 'Payout recorded' : 'Awaiting payout' }}</p>
                                             @endif
                                             @if ($this->canRecordLandlordSettlement($transaction))
                                                 <button wire:click="markLandlordSettled({{ $transaction->id }})" wire:loading.attr="disabled" wire:target="markLandlordSettled" type="button" class="admin-inline-link mt-2">

@@ -132,12 +132,14 @@
                     </div>
 
                     <div>
-                        <label for="profilePicture" class="admin-label">Upload profile picture</label>
+                        <label for="profilePicture" class="admin-label">Upload photo</label>
                         <input wire:model="profilePicture" id="profilePicture" type="file" accept="image/png,image/jpeg,image/webp" class="admin-control file:mr-4 file:border-0 file:bg-transparent file:px-0 file:py-0 file:text-sm file:font-medium" />
                         <div wire:loading wire:target="profilePicture" class="admin-help">Preparing image...</div>
                         <p class="admin-help">Accepted file types: JPG, JPEG, PNG, WEBP up to 5MB.</p>
                         @error('profilePicture') <p class="admin-error">{{ $message }}</p> @enderror
                     </div>
+
+                    <x-camera-capture input-id="profilePicture" label="Take photo" kind="profile" />
 
                     <div class="flex flex-wrap gap-3 border-t border-slate-200 pt-4">
                         @if ($profilePicture)
@@ -151,6 +153,11 @@
                                 Remove Current Picture
                             </button>
                         @endif
+
+                        <button wire:click="saveProfilePicture" wire:loading.attr="disabled" wire:target="saveProfilePicture,profilePicture" type="button" @disabled(! $profilePicture) class="admin-button admin-button-primary">
+                            <span wire:loading.remove wire:target="saveProfilePicture,profilePicture">Save photo</span>
+                            <span wire:loading wire:target="saveProfilePicture,profilePicture">Saving...</span>
+                        </button>
                     </div>
                 </div>
             </x-admin.panel>

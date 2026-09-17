@@ -99,7 +99,7 @@
                     @else
                         <div class="space-y-3">
                             @foreach ($nextActions as $action)
-                                <a href="{{ $action['href'] }}" class="block rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:bg-slate-50">
+                                <a href="{{ $action['href'] }}" class="admin-workflow-state admin-workflow-state-action block transition hover:border-sky-300 hover:bg-sky-50">
                                     <p class="text-sm font-semibold text-slate-900">{{ $action['label'] }}</p>
                                     <p class="mt-2 text-sm text-slate-600">{{ $action['context'] }}</p>
                                     <p class="mt-4 text-sm font-medium text-sky-700">{{ $action['cta'] }}</p>
@@ -128,7 +128,7 @@
                     @else
                         <div class="space-y-3">
                             @foreach ($attentionItems as $attentionItem)
-                                <a href="{{ $attentionItem['href'] }}" class="block rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:bg-slate-50">
+                                <a href="{{ $attentionItem['href'] }}" class="admin-workflow-state admin-workflow-state-action block transition hover:border-sky-300 hover:bg-sky-50">
                                     <div class="flex items-start justify-between gap-4">
                                         <div>
                                             <p class="text-sm font-semibold text-slate-900">{{ $attentionItem['label'] }}</p>

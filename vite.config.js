@@ -9,6 +9,8 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/css/admin.css',
                 'resources/js/admin.js',
+                'resources/js/payment-return.js',
+                'resources/js/payment-return-success.js',
             ],
             refresh: true,
         }),

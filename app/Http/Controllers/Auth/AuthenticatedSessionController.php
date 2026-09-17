@@ -15,8 +15,12 @@ class AuthenticatedSessionController extends Controller
     /**
      * Display the login view.
      */
-    public function create(): View
+    public function create(Request $request): View
     {
+        if ($request->boolean('support')) {
+            $request->session()->put('support_login_origin', true);
+        }
+
         return view('auth.login');
     }
 
@@ -32,6 +36,16 @@ class AuthenticatedSessionController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        if ($request->session()->pull('support_login_origin', false)) {
+            if ($user->isTenant()) {
+                return redirect()->route('tenant.support.index');
+            }
+
+            if ($user->isLandlord()) {
+                return redirect()->route('landlord.support.index');
+            }
+        }
+
         return redirect()->intended($this->redirectToDashboard($user));
     }
 
@@ -40,13 +54,14 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $supportStaff = $request->user()?->isSupportStaff() ?? false;
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
 
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return $supportStaff ? redirect()->route('support-team.login') : redirect('/');
     }
 
     protected function redirectToDashboard(User $user): string

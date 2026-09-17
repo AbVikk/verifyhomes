@@ -16,6 +16,7 @@ use App\Support\InspectionRequestOptions;
 use App\Support\Currency;
 use App\Support\PublicPropertyVisibility;
 use App\Support\ReviewStatusOptions;
+use App\Support\LandlordSettlementService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -97,6 +98,7 @@ class Dashboard extends Component
         );
         $nextActions = $attentionItems;
         $paymentSummary = $this->paymentSummary($tableAvailability['payment_transactions']);
+        $settlementOverview = $tableAvailability['payment_transactions'] ? app(LandlordSettlementService::class)->overview() : ['outstanding' => 0, 'count' => 0, 'overdue' => 0, 'oldest' => 0];
         $operationalSignals = $this->operationalSignals(
             (int) $landlordStatusCounts->sum(),
             $approvedPropertiesCount,
@@ -128,6 +130,7 @@ class Dashboard extends Component
             'checklist' => $checklist,
             'nextActions' => $nextActions,
             'paymentSummary' => $paymentSummary,
+            'settlementOverview' => $settlementOverview,
             'operationalSignals' => $operationalSignals,
             'hasInspectionRequestData' => $tableAvailability['inspection_requests'],
         ]), 'Admin Dashboard');

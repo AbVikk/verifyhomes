@@ -243,10 +243,42 @@
 
                             <div class="flex flex-wrap gap-3">
                                 @if ($this->canStartRentPayment())
-                                    <form method="POST" action="{{ route('tenant.properties.rent-payments.store', $property) }}" data-processing-form>
+                                    <form method="POST" action="{{ route('tenant.properties.rent-payments.store', $property) }}" data-processing-form class="w-full space-y-4">
                                         @csrf
-                                        <button type="submit" class="admin-button admin-button-primary" data-processing-button>
-                                            <span data-button-idle>Pay rent</span>
+                                        @php($rentPlans = $property->rentPlans->where('is_active', true))
+                                        @if ($rentPlans->isNotEmpty())
+                                            <fieldset>
+                                                <legend class="admin-label">Choose your rental period</legend>
+                                                <p class="admin-help">Select one plan. The displayed price is the amount used for checkout.</p>
+                                                <div class="mt-3 grid gap-3">
+                                                @foreach ($rentPlans as $plan)
+                                                    <label class="group relative block cursor-pointer">
+                                                        <input type="radio" name="rent_plan_id" value="{{ $plan->id }}" class="peer sr-only" @checked(old('rent_plan_id') == $plan->id) required>
+                                                        <span class="block rounded-md border border-slate-300 bg-white p-4 transition peer-checked:border-slate-950 peer-checked:bg-slate-50 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-slate-950 group-hover:border-slate-400">
+                                                            <span class="flex items-start justify-between gap-4">
+                                                                <span>
+                                                                    <span class="block text-sm font-semibold text-slate-950">{{ $plan->period_months }} months</span>
+                                                                    <span class="mt-1 block text-sm text-slate-600">Selected Rental Period</span>
+                                                                </span>
+                                                                <span class="text-right">
+                                                                    <span class="block text-lg font-semibold text-slate-950">{{ \App\Support\Currency::format($plan->amount) }}</span>
+                                                                    <span class="mt-1 hidden text-xs font-semibold uppercase tracking-wide text-slate-700 peer-checked:block">Selected</span>
+                                                                </span>
+                                                            </span>
+                                                        </span>
+                                                    </label>
+                                                @endforeach
+                                                </div>
+                                            </fieldset>
+                                            @error('rent_plan_id') <p class="admin-error mb-3">{{ $message }}</p> @enderror
+                                        @endif
+                                        <div class="admin-callout">
+                                            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Payment summary</p>
+                                            <p class="mt-2 text-sm font-medium text-slate-900">Total payable is confirmed from the selected rental plan at checkout.</p>
+                                            <p class="mt-1 text-sm text-slate-600">Expected next due date is calculated when the payment is verified.</p>
+                                        </div>
+                                        <button type="submit" class="admin-button admin-button-primary w-full sm:w-auto" data-processing-button>
+                                            <span data-button-idle>Continue to Payment</span>
                                             <span data-button-processing class="hidden">Starting checkout...</span>
                                         </button>
                                     </form>
@@ -386,9 +418,18 @@
                                 </a>
                             </div>
                         @elseif (! $this->canRequestInspection())
+                            @php($hasUpcomingRental = $this->rentalEligibilityMessage() === 'You already have your next rental secured.')
                             <div class="space-y-3">
-                                <div class="admin-alert admin-alert-warning">{{ $this->rentalEligibilityMessage() }}</div>
-                                <a href="{{ route('tenant.occupancy.index') }}" class="admin-button admin-button-secondary w-full text-center">View My Stay</a>
+                                <x-admin.workflow-state
+                                    tone="blocked"
+                                    label="Rental limit"
+                                    :title="$hasUpcomingRental ? 'Your next rental is already secured' : 'You already have an active rental'"
+                                    :copy="$hasUpcomingRental
+                                        ? 'You cannot secure another rental until your upcoming stay becomes active and your current occupancy is completed.'
+                                        : $this->rentalEligibilityMessage()"
+                                >
+                                    <a href="{{ route('tenant.occupancy.index') }}" class="admin-button admin-button-primary mt-4 w-full text-center">{{ $hasUpcomingRental ? 'View Upcoming Stay' : 'View My Stay' }}</a>
+                                </x-admin.workflow-state>
                             </div>
                         @else
                             <form id="inspection-request" method="POST" action="{{ route('inspection-requests.store', $property) }}" class="space-y-4" data-processing-form>
@@ -517,7 +558,7 @@
             </div>
         </div>
 
-        <x-modal name="inspection-terms-tenant" maxWidth="2xl">
+        <x-modal name="inspection-terms-tenant" maxWidth="3xl">
             <div class="admin-modal-panel" data-terms-gate-modal-content="{{ $this->inspectionTermsGate() }}">
                 <div class="admin-modal-header">
                     <h3 class="text-lg font-semibold text-slate-950">Inspection terms</h3>
@@ -530,8 +571,8 @@
                     <p>Your preferred date is a request, not a confirmed appointment.</p>
                     <p>Keep this modal open and read it fully before you accept the checkbox on the form.</p>
                     <div class="admin-callout">
-                        <label class="flex items-start gap-3 text-sm text-slate-700">
-                            <input type="checkbox" data-terms-gate-checkbox class="admin-checkbox mt-1" />
+                        <label for="inspection-terms-tenant-checkbox" class="flex items-start gap-3 text-sm text-slate-700">
+                            <input id="inspection-terms-tenant-checkbox" type="checkbox" data-terms-gate-checkbox class="admin-checkbox mt-1" />
                             <span>I have read and accept the inspection terms before sending this request.</span>
                         </label>
                         <p class="admin-help" data-terms-gate-modal-status>

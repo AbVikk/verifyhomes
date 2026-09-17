@@ -5,6 +5,7 @@ namespace App\Livewire\Landlord\Properties\Concerns;
 use App\Models\Property;
 use App\Models\PropertyDocument;
 use App\Models\PropertyImage;
+use App\Models\PropertyRentPlan;
 use App\Support\LandlordOptions;
 use App\Support\PublicPropertyVisibility;
 use App\Support\RentPricingCalculator;
@@ -30,6 +31,8 @@ trait InteractsWithPropertyForm
     public string $landSizeUnit = 'sqm';
 
     public string $rentAmount = '';
+
+    public array $rentPlans = [];
 
     public string $pricingModel = RentPricingCalculator::MODEL_TENANT_PRICE;
 
@@ -118,6 +121,9 @@ trait InteractsWithPropertyForm
             'landSize' => [$this->propertyType === 'land' ? 'required' : 'nullable', 'numeric', 'min:0'],
             'landSizeUnit' => [$this->propertyType === 'land' ? 'required' : 'nullable', 'string', Rule::in(LandlordOptions::landSizeUnitValues())],
             'rentAmount' => ['required', 'numeric', 'min:0'],
+            'rentPlans' => ['array'],
+            'rentPlans.*.period_months' => ['required_with:rentPlans', 'integer', 'min:1', 'max:120'],
+            'rentPlans.*.amount' => ['required_with:rentPlans', 'numeric', 'gt:0'],
             'pricingModel' => ['required', 'string', Rule::in(RentPricingCalculator::supportedModels())],
             'cautionFee' => ['nullable', 'numeric', 'min:0'],
             'serviceCharge' => ['nullable', 'numeric', 'min:0'],
@@ -168,6 +174,10 @@ trait InteractsWithPropertyForm
         $this->landSize = $property->land_size !== null ? (string) $property->land_size : null;
         $this->landSizeUnit = $property->land_size_unit ?: 'sqm';
         $this->rentAmount = (string) $property->rent_amount;
+        $this->rentPlans = $property->rentPlans->map(fn (PropertyRentPlan $plan) => ['period_months' => (string) $plan->period_months, 'amount' => (string) $plan->amount])->all();
+        if ($this->rentPlans === [] && $this->listingIntent === 'for_rent') {
+            $this->rentPlans = [['period_months' => '12', 'amount' => $this->rentAmount]];
+        }
         $this->pricingModel = $property->pricing_model ?: RentPricingCalculator::MODEL_TENANT_PRICE;
         $this->cautionFee = $property->caution_fee !== null ? (string) $property->caution_fee : null;
         $this->serviceCharge = $property->service_charge !== null ? (string) $property->service_charge : null;
@@ -195,6 +205,8 @@ trait InteractsWithPropertyForm
         $this->commitCurrentDocumentSelectionIfPresent();
 
         $termsGate = $this->listingTermsGate($property->exists ? $property : null);
+        $this->normalizeRentPlans();
+        $this->validateRentPlanPeriodsAreUnique();
         $validated = $this->validate($this->propertyRules(), $this->propertyValidationMessages());
         $this->ensureListingTermsGateIsReady($property);
         $publicFiles = [];
@@ -205,6 +217,7 @@ trait InteractsWithPropertyForm
         try {
             $property->fill($this->propertyPayload($property, $validated));
             $property->save();
+            $this->syncRentPlans($property, $validated['rentPlans'] ?? []);
 
             $this->storePropertyImages($property, $publicFiles);
             $this->storePropertyDocuments($property, $privateFiles);
@@ -222,7 +235,38 @@ trait InteractsWithPropertyForm
         $this->hasAcceptedListingTerms = false;
         app(TermsGateService::class)->clear($termsGate);
 
-        return $property->fresh(['images', 'documents']);
+        return $property->fresh(['images', 'documents', 'rentPlans']);
+    }
+
+    public function addRentPlan(): void { $this->rentPlans[] = ['period_months' => '', 'amount' => '']; }
+
+    public function removeRentPlan(int $index): void { unset($this->rentPlans[$index]); $this->rentPlans = array_values($this->rentPlans); }
+
+    protected function normalizeRentPlans(): void
+    {
+        $this->rentPlans = array_values(array_filter($this->rentPlans, fn (array $plan): bool => trim((string) ($plan['period_months'] ?? '')) !== '' || trim((string) ($plan['amount'] ?? '')) !== ''));
+    }
+
+    protected function validateRentPlanPeriodsAreUnique(): void
+    {
+        $seen = [];
+        foreach ($this->rentPlans as $index => $plan) {
+            $period = trim((string) ($plan['period_months'] ?? ''));
+            if ($period === '') continue;
+            if (isset($seen[$period])) {
+                throw ValidationException::withMessages(["rentPlans.{$index}.period_months" => "A {$period}-month rental plan already exists."]);
+            }
+            $seen[$period] = true;
+        }
+    }
+
+    protected function syncRentPlans(Property $property, array $plans): void
+    {
+        if ($property->listing_intent !== 'for_rent') return;
+        $periods = collect($plans)->pluck('period_months')->map(fn ($period) => (int) $period)->all();
+        if (count($periods) !== count(array_unique($periods))) throw ValidationException::withMessages(['rentPlans' => 'Each rental period can only be configured once.']);
+        $property->rentPlans()->whereNotIn('period_months', $periods ?: [0])->update(['is_active' => false]);
+        foreach ($plans as $plan) $property->rentPlans()->updateOrCreate(['period_months' => (int) $plan['period_months']], ['amount' => $plan['amount'], 'is_active' => true]);
     }
 
     public function listingIntentLabel(?string $intent = null): string

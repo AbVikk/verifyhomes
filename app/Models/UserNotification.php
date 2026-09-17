@@ -30,6 +30,29 @@ class UserNotification extends Model
         return $query->where('user_id', $userId);
     }
 
+    public function scopeUnread(Builder $query): Builder
+    {
+        return $query->whereNull('read_at');
+    }
+
+    public function markRead(): bool
+    {
+        if ($this->read_at) {
+            return false;
+        }
+
+        $marked = static::query()
+            ->whereKey($this->getKey())
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        if ($marked) {
+            $this->read_at = now();
+        }
+
+        return $marked === 1;
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

@@ -12,10 +12,17 @@
         && class_exists(\App\Models\UserNotification::class)
         && \Illuminate\Support\Facades\Schema::hasTable('user_notifications');
     $notifications = $notificationsAvailable
-        ? \App\Models\UserNotification::forUser($user->getKey())->latest()->take(5)->get()
+        ? \App\Models\UserNotification::forUser($user->getKey())
+            ->orderByRaw('case when read_at is null then 0 else 1 end')
+            ->orderByRaw('case when read_at is null then created_at end desc')
+            ->orderByDesc('read_at')
+            ->take(20)
+            ->get()
         : collect();
+    $unreadDropdownNotifications = $notifications->filter(fn ($notification) => ! $notification->read_at);
+    $readDropdownNotifications = $notifications->filter(fn ($notification) => $notification->read_at);
     $unreadNotifications = $notificationsAvailable
-        ? \App\Models\UserNotification::forUser($user->getKey())->whereNull('read_at')->count()
+        ? \App\Models\UserNotification::forUser($user->getKey())->unread()->count()
         : 0;
     $quickSearchRoute = \Illuminate\Support\Facades\Route::has('admin.search')
         ? route('admin.search')
@@ -61,9 +68,21 @@
             'icon' => 'inspection-requests',
         ],
         [
+            'label' => 'Support Requests',
+            'href' => route('admin.support.index'),
+            'active' => request()->routeIs('admin.support.*'),
+            'icon' => 'notifications',
+        ],
+        [
             'label' => 'Payments',
             'href' => route('admin.payments.index'),
             'active' => request()->routeIs('admin.payments.*'),
+            'icon' => 'payments',
+        ],
+        [
+            'label' => 'Settlements',
+            'href' => route('admin.settlements.index'),
+            'active' => request()->routeIs('admin.settlements.*'),
             'icon' => 'payments',
         ],
         [
@@ -91,6 +110,14 @@
             'icon' => 'audit',
         ],
     ];
+    if ($user?->isAdmin()) {
+        $navigationLinks[] = [
+            'label' => 'Support Team',
+            'href' => route('admin.support-team.index'),
+            'active' => request()->routeIs('admin.support-team.*'),
+            'icon' => 'tenants',
+        ];
+    }
 @endphp
 
 <!DOCTYPE html>
@@ -117,7 +144,8 @@
 
             <aside
                 data-admin-sidebar
-                class="admin-sidebar fixed inset-y-0 left-0 z-50 flex w-80 max-w-[85vw] -translate-x-full flex-col border-r border-slate-800 bg-slate-950 text-slate-100 shadow-2xl transition-transform duration-200 ease-out lg:translate-x-0 lg:max-w-none lg:shadow-none"
+                class="admin-sidebar fixed inset-y-0 left-0 z-50 flex -translate-x-full flex-col border-r border-slate-800 bg-slate-950 text-slate-100 shadow-2xl transition-transform duration-200 ease-out lg:translate-x-0 lg:max-w-none lg:shadow-none"
+                aria-hidden="true"
             >
                 <div class="flex items-center justify-between border-b border-white/10 px-6 py-5">
                     <a href="{{ route('admin.dashboard') }}" class="admin-sidebar-brand flex min-w-0 items-center gap-3">
@@ -289,10 +317,10 @@
                         <div class="flex min-w-0 items-center gap-3">
                             <button
                                 type="button"
-                                class="admin-topbar-toggle"
+                                class="admin-topbar-toggle hidden lg:inline-flex"
                                 data-admin-sidebar-toggle
                             >
-                                <span class="sr-only">Toggle sidebar collapse</span>
+                                <span class="sr-only">Toggle desktop sidebar collapse</span>
                                 <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 6.75h15M4.5 12h15M4.5 17.25h15" />
                                 </svg>
@@ -352,30 +380,69 @@
                                         </span>
                                     </button>
 
-                                    <div class="admin-topbar-dropdown hidden" data-admin-notifications-menu>
+                                    <div class="admin-topbar-dropdown admin-notifications-panel hidden" data-admin-notifications-menu>
                                         <div class="admin-topbar-dropdown-header">
-                                            <p class="admin-topbar-dropdown-name">Notifications</p>
-                                            <p class="admin-topbar-dropdown-email">{{ $unreadNotifications > 0 ? "{$unreadNotifications} unread updates" : 'All caught up' }}</p>
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="min-w-0">
+                                                    <p class="admin-topbar-dropdown-name">Notifications</p>
+                                                    <p class="admin-topbar-dropdown-email">{{ $unreadNotifications > 0 ? "{$unreadNotifications} unread updates" : 'All caught up' }}</p>
+                                                </div>
+                                                @if ($unreadNotifications > 0)
+                                                    <form method="POST" action="{{ route('notifications.mark-all-read') }}" class="shrink-0">
+                                                        @csrf
+                                                        <button type="submit" class="admin-notification-mark-read">Mark all as read</button>
+                                                    </form>
+                                                @endif
+                                            </div>
                                         </div>
-                                        <div class="admin-topbar-dropdown-links">
-                                            @forelse ($notifications as $notification)
-                                                <div class="admin-topbar-dropdown-link">
-                                                    <p class="text-sm font-medium text-slate-900">{{ $notification->title }}</p>
-                                                    @if ($notification->body)
-                                                        <p class="mt-1 text-xs text-slate-500">{{ $notification->body }}</p>
-                                                    @endif
-                                                    @if ($notification->link)
-                                                        <a href="{{ $notification->link }}" class="mt-2 inline-flex text-xs font-semibold text-sky-700">Open</a>
-                                                    @endif
+                                        <div class="admin-notification-list">
+                                            @if ($unreadDropdownNotifications->isNotEmpty())
+                                                <p class="admin-notification-group-label" data-notification-group="unread">Unread</p>
+                                                @foreach ($unreadDropdownNotifications as $notification)
+                                                    <div class="admin-notification-item admin-notification-item-unread" data-notification-state="unread">
+                                                        <div class="flex items-start gap-2">
+                                                            <span class="admin-notification-unread-dot" aria-hidden="true"></span>
+                                                            <p class="admin-notification-title">{{ $notification->title }}</p>
+                                                        </div>
+                                                        @if ($notification->body)
+                                                            <p class="admin-notification-body">{{ $notification->body }}</p>
+                                                        @endif
+                                                        <div class="admin-notification-meta">
+                                                            <span>{{ $notification->created_at?->diffForHumans() ?? 'Recently' }}</span>
+                                                            @if ($notification->link)
+                                                                <a href="{{ route('notifications.open', $notification) }}" class="admin-notification-open">Open</a>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            @endif
+
+                                            @if ($readDropdownNotifications->isNotEmpty())
+                                                <p class="admin-notification-group-label {{ $unreadDropdownNotifications->isNotEmpty() ? 'mt-1 border-t border-white/10 pt-3' : '' }}" data-notification-group="read">Read</p>
+                                                @foreach ($readDropdownNotifications as $notification)
+                                                    <div class="admin-notification-item" data-notification-state="read">
+                                                        <p class="admin-notification-title">{{ $notification->title }}</p>
+                                                        @if ($notification->body)
+                                                            <p class="admin-notification-body">{{ $notification->body }}</p>
+                                                        @endif
+                                                        <div class="admin-notification-meta">
+                                                            <span>{{ $notification->read_at?->diffForHumans() ?? 'Recently' }}</span>
+                                                            @if ($notification->link)
+                                                                <a href="{{ route('notifications.open', $notification) }}" class="admin-notification-open">Open</a>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            @endif
+
+                                            @if ($notifications->isEmpty())
+                                                <div class="admin-notification-empty">
+                                                    <p>No notifications yet.</p>
                                                 </div>
-                                            @empty
-                                                <div class="admin-topbar-dropdown-link">
-                                                    <p class="text-sm text-slate-600">No notifications yet.</p>
-                                                </div>
-                                            @endforelse
+                                            @endif
                                         </div>
                                         @if ($notificationsIndexRoute)
-                                            <div class="admin-topbar-dropdown-footer">
+                                            <div class="admin-topbar-dropdown-footer admin-notification-footer">
                                                 <a href="{{ $notificationsIndexRoute }}" class="admin-topbar-dropdown-link">View all notifications</a>
                                             </div>
                                         @endif
@@ -393,7 +460,11 @@
                                 <div class="admin-topbar-profile" data-admin-profile>
                                     <button type="button" class="admin-topbar-profile-trigger" data-admin-profile-toggle aria-expanded="false">
                                         <span class="admin-topbar-profile-avatar">
-                                            {{ $userInitials }}
+                                            @if (Auth::user()->avatar_path)
+                                                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url(Auth::user()->avatar_path) }}" alt="{{ Auth::user()->name }} profile picture" class="h-full w-full object-cover" />
+                                            @else
+                                                {{ $userInitials }}
+                                            @endif
                                         </span>
                                         <svg class="h-4 w-4 text-slate-300" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                             <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -425,6 +496,7 @@
                                 type="button"
                                 class="admin-topbar-mobile-toggle lg:hidden"
                                 data-admin-sidebar-open
+                                aria-expanded="false"
                             >
                                 <span class="sr-only">Open sidebar</span>
                                 <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

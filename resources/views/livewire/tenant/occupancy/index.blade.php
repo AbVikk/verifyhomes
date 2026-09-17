@@ -119,10 +119,15 @@
                     @endphp
 
                     @if ($sectionTitle !== $previousSectionTitle)
-                        <div class="pt-2"><p class="admin-eyebrow">{{ $sectionTitle }}</p></div>
+                        <div class="border-b border-slate-200 pb-3 pt-2">
+                            <p class="admin-eyebrow">{{ $sectionTitle }}</p>
+                            <h3 class="mt-1 text-lg font-semibold text-slate-950">
+                                {{ $sectionTitle === 'Current Stay' ? 'Your current home' : ($sectionTitle === 'Upcoming Stay' ? 'Your secured next home' : 'Previous rental history') }}
+                            </h3>
+                        </div>
                     @endif
 
-                    <x-admin.panel>
+                    <x-admin.panel class="{{ $sectionTitle === 'Current Stay' ? 'border-sky-300 bg-sky-50/30' : ($sectionTitle === 'Upcoming Stay' ? 'border-sky-200 bg-sky-50/20' : 'opacity-90') }}">
                         <div class="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
                             <div class="space-y-4">
                                 <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -170,6 +175,12 @@
                                                 <p class="mt-1 text-sm text-slate-600">{{ $daysRemaining }} day{{ $daysRemaining === 1 ? '' : 's' }} remaining.</p>
                                             @endif
                                         @endif
+                                        @if (($property?->listing_intent ?? 'for_rent') === 'for_rent')
+                                            <p class="mt-2 text-sm text-slate-600">Rental Period: {{ $occupancy->rentalPeriodLabel() }}</p>
+                                            @if ($occupancy->status !== 'upcoming')
+                                                <p class="mt-1 text-sm text-slate-600">Current start date: {{ $occupancy->started_at?->format('M j, Y') ?? 'Unavailable' }}</p>
+                                            @endif
+                                        @endif
                                     </div>
                                     <div>
                                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Stay status</p>
@@ -180,8 +191,31 @@
                             </div>
 
                             <div class="space-y-4">
+                                <div class="admin-subsurface p-4"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Maintenance</p>@if($occupancy->status === 'upcoming')<p class="mt-1 text-sm text-slate-600">Available after move-in.</p>@elseif($occupancy->status === 'moved_out')<a href="{{ route('tenant.maintenance.index') }}" class="admin-inline-link mt-1 inline-flex">View maintenance history</a>@else<div class="mt-2 flex items-center justify-between gap-3"><span class="text-sm text-slate-700">{{ $occupancy->maintenance_open_count ? $occupancy->maintenance_open_count.' open request'.($occupancy->maintenance_open_count === 1 ? '' : 's') : 'No open issues' }}</span><a href="{{ route('tenant.maintenance.index') }}" class="admin-inline-link">{{ $occupancy->maintenance_open_count ? 'View maintenance' : 'Report an issue' }}</a></div>@endif</div>
+                                @if ($agreementsAvailable)
+                                    @php($agreement = $occupancy->tenancyAgreement)
+                                    <div class="admin-subsurface p-4">
+                                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Agreement</p>
+                                        @if (! $agreement)
+                                            <p class="mt-1 text-sm text-slate-600">No agreement generated for this legacy stay.</p>
+                                        @else
+                                            <div class="mt-2 flex flex-wrap items-center justify-between gap-3"><div><x-status-chip tone="{{ $agreement->completed_at ? 'success' : ($agreement->tenant_accepted_at ? 'info' : 'warning') }}">{{ $agreement->completed_at ? 'Completed' : ($agreement->tenant_accepted_at ? 'Awaiting landlord' : 'Awaiting your acceptance') }}</x-status-chip></div><a href="{{ route('tenant.agreements.show', $agreement) }}" class="admin-inline-link">View agreement</a></div>
+                                        @endif
+                                    </div>
+                                @endif
+                                @if ($moveInReportsAvailable)
+                                    @php($moveInReport = $occupancy->moveInConditionReport)
+                                    <div class="admin-subsurface p-4">
+                                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Move-in condition</p>
+                                        @if (! $moveInReport)
+                                            <p class="mt-1 text-sm text-slate-600">{{ $agreement?->completed_at ? 'Awaiting the landlord report.' : 'Available after the tenancy agreement is completed.' }}</p>
+                                        @else
+                                            <div class="mt-2 flex flex-wrap items-center justify-between gap-3"><x-status-chip tone="{{ $moveInReport->status === 'completed' ? 'success' : ($moveInReport->status === 'awaiting_tenant' ? 'warning' : 'info') }}">{{ $moveInReport->status === 'awaiting_tenant' ? 'Review required' : str($moveInReport->status)->headline() }}</x-status-chip><a href="{{ route('tenant.move-in-reports.show', $moveInReport) }}" class="admin-inline-link">{{ $moveInReport->status === 'awaiting_tenant' ? 'Review report' : 'View report' }}</a></div>
+                                        @endif
+                                    </div>
+                                @endif
                                 <div>
-                                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Next actions</p>
+                                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{{ $occupancy->status === 'upcoming' ? 'No action required' : 'Next actions' }}</p>
                                     <p class="mt-2 text-sm text-slate-600">{{ $occupancy->status === 'upcoming' ? 'This stay is reserved and does not need active-stay actions yet.' : 'Request a move-out or report an issue for admin review and support.' }}</p>
                                 </div>
 

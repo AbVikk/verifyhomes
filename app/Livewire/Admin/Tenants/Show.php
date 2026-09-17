@@ -53,7 +53,8 @@ class Show extends Component
         }
 
         return $this->adminPage(view('livewire.admin.tenants.show', [
-            'tenantProfile' => $this->tenantProfile?->loadMissing('user'),
+            'tenantProfile' => $this->tenantProfile?->loadMissing(['user', 'verifier']),
+            'canReviewVerification' => auth()->user()?->isAdmin() ?? false,
             'tenantProfilesAvailable' => $tenantProfilesAvailable,
             'inspectionRequestsAvailable' => $inspectionRequestsAvailable,
             'inspectionRequests' => $inspectionRequests,

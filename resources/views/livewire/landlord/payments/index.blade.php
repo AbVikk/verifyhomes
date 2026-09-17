@@ -10,7 +10,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Paid</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $summary['paid'] }}</p>
+                    <x-admin.kpi-value :value="$summary['paid']" />
                     <p class="text-sm text-slate-600">Verified paid money tied to your properties.</p>
                 </div>
             </x-admin.panel>
@@ -18,7 +18,7 @@
             <x-admin.panel class="h-full">
                 <div class="space-y-2">
                     <p class="admin-eyebrow">Verified volume</p>
-                    <p class="text-3xl font-semibold text-slate-950">{{ $this->formatMoney($summary['gross']) }}</p>
+                    <x-admin.kpi-value :value="\App\Support\Currency::formatCompact($summary['gross'])" :exact="$this->formatMoney($summary['gross'])" />
                     <p class="text-sm text-slate-600">Gross value from paid transactions visible to landlords.</p>
                 </div>
             </x-admin.panel>
@@ -30,7 +30,7 @@
                     <div>
                         <p class="admin-eyebrow">Payments</p>
                         <h2 class="admin-panel-title">Paid money tied to your listings</h2>
-                        <p class="admin-panel-copy">This landlord workspace shows only verified paid property transactions. Tenant checkout states and inspection payments remain in tenant and admin views.</p>
+                        <p class="admin-panel-copy">Verified property payments only.</p>
                     </div>
                 </div>
 
@@ -62,6 +62,7 @@
                                     <th class="admin-table-head-cell">Property</th>
                                     <th class="admin-table-head-cell">Tenant</th>
                                     <th class="admin-table-head-cell">Amount</th>
+                                    <th class="admin-table-head-cell">Rental Period</th>
                                     <th class="admin-table-head-cell">Status</th>
                                     <th class="admin-table-head-cell">Logged</th>
                                 </tr>
@@ -70,11 +71,7 @@
                                 @forelse ($transactions as $transaction)
                                     <tr class="align-top">
                                         <td class="px-4 py-4 text-sm text-slate-700">
-                                            <p class="font-mono text-xs text-slate-900">{{ $transaction->reference }}</p>
-                                            <p class="mt-1 text-xs text-slate-500">{{ $this->providerLabel($transaction->provider) }}</p>
-                                            @if ($transaction->provider_reference)
-                                                <p class="mt-1 text-xs text-slate-500">Provider ref: {{ $transaction->provider_reference }}</p>
-                                            @endif
+                                            <p class="font-mono text-xs text-slate-900" title="{{ $transaction->reference }}">{{ str($transaction->reference)->limit(18) }}</p>
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
                                             <p class="font-medium text-slate-900">{{ $transaction->property?->title ?: 'Property record' }}</p>
@@ -82,17 +79,30 @@
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
                                             <p class="font-medium text-slate-900">{{ $transaction->payer?->name ?: 'No tenant record' }}</p>
-                                            <p class="mt-1 text-slate-500">Visible because this verified payment settled against your property activity.</p>
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
+                                            <p class="text-xs text-slate-500">{{ $this->paidAmountLabel($transaction) }}</p>
                                             <p class="font-medium text-slate-900">{{ $this->formatMoney($transaction->gross_amount, $transaction->currency) }}</p>
-                                            <p class="mt-1 text-xs text-slate-500">{{ $this->platformFeeSummary($transaction) }}</p>
+                                            <p class="mt-1 text-xs text-slate-500">Landlord amount</p>
+                                            <p class="text-xs text-slate-700">{{ $this->formatMoney($transaction->net_amount, $transaction->currency) }}</p>
+                                            <p class="mt-1 text-xs text-slate-500">Paid to you</p>
+                                            <p class="text-xs text-slate-700">{{ $this->formatMoney($this->settlementPaidToDate($transaction), $transaction->currency) }}</p>
+                                            @if ($this->settlementOutstanding($transaction) > 0)
+                                                <p class="mt-1 text-xs text-slate-500">Outstanding</p>
+                                                <p class="text-xs text-slate-700">{{ $this->formatMoney($this->settlementOutstanding($transaction), $transaction->currency) }}</p>
+                                            @endif
                                         </td>
+                                        <td class="px-4 py-4 text-sm text-slate-700">{{ $transaction->rentalPeriodLabel() }}</td>
                                         <td class="px-4 py-4 text-sm text-slate-700">
-                                            <span class="admin-badge admin-badge-neutral">{{ str($transaction->status)->headline() }}</span>
-                                            <p class="mt-2 text-slate-500">{{ $this->statusSummary($transaction->status) }}</p>
-                                            @if ($this->workflowImpactSummary($transaction))
-                                                <p class="mt-2 text-slate-600">{{ $this->workflowImpactSummary($transaction) }}</p>
+                                            <span class="admin-badge admin-badge-neutral">{{ $this->settlementStatus($transaction) }}</span>
+                                            @if ($this->settlementStatus($transaction) === 'Legacy payout recorded')
+                                                <p class="mt-2 text-xs text-slate-500">Detailed payout history is unavailable for this legacy record.</p>
+                                            @endif
+                                            @if ($transaction->landlordSettlements->isNotEmpty())
+                                                <p class="mt-2 text-xs text-slate-500">Last payout: {{ $transaction->landlordSettlements->first()->recorded_at?->format('M j, Y') }}</p>
+                                                @foreach ($transaction->landlordSettlements as $settlement)
+                                                    <p class="mt-1 text-xs text-slate-500">{{ $this->formatMoney($settlement->payout_amount, $settlement->currency) }}{{ $settlement->payout_reference ? ' · '.$settlement->payout_reference : '' }}</p>
+                                                @endforeach
                                             @endif
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-500">

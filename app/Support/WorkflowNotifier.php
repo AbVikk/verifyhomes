@@ -19,11 +19,11 @@ class WorkflowNotifier
         ?string $link,
         string $category = 'general',
         ?string $actionLabel = null,
-    ): void {
+    ): bool {
         if (! Schema::hasTable('user_notifications')) {
             $this->sendEmail($recipient, $eventKey, $title, $body, $link, $actionLabel);
 
-            return;
+            return false;
         }
 
         $notification = UserNotification::query()->firstOrCreate(
@@ -37,10 +37,12 @@ class WorkflowNotifier
         );
 
         if (! $notification->wasRecentlyCreated) {
-            return;
+            return false;
         }
 
         $this->sendEmail($recipient, $eventKey, $title, $body, $link, $actionLabel);
+
+        return true;
     }
 
     private function sendEmail(User $recipient, string $eventKey, string $title, string $body, ?string $link, ?string $actionLabel): void

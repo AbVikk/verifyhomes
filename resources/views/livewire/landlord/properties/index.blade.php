@@ -37,31 +37,31 @@
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <x-admin.panel class="h-full">
                 <p class="admin-eyebrow">Total listings</p>
-                <p class="mt-3 text-3xl font-semibold text-slate-950">{{ $totalPropertiesCount }}</p>
+                <x-admin.kpi-value class="mt-3" :value="$totalPropertiesCount" />
                 <p class="admin-help">All properties currently in your landlord workspace.</p>
             </x-admin.panel>
 
             <x-admin.panel class="h-full">
                 <p class="admin-eyebrow">Needs attention</p>
-                <p class="mt-3 text-3xl font-semibold text-slate-950">{{ $needsAttentionPropertiesCount }}</p>
+                <x-admin.kpi-value class="mt-3" :value="$needsAttentionPropertiesCount" />
                 <p class="admin-help">Listings that currently need review, follow-through, or missing-file checks.</p>
             </x-admin.panel>
 
             <x-admin.panel class="h-full">
                 <p class="admin-eyebrow">Pending review</p>
-                <p class="mt-3 text-3xl font-semibold text-slate-950">{{ $pendingReviewPropertiesCount }}</p>
+                <x-admin.kpi-value class="mt-3" :value="$pendingReviewPropertiesCount" />
                 <p class="admin-help">Listings still waiting for an admin review decision.</p>
             </x-admin.panel>
 
             <x-admin.panel class="h-full">
                 <p class="admin-eyebrow">Approved, unpublished</p>
-                <p class="mt-3 text-3xl font-semibold text-slate-950">{{ $approvedUnpublishedPropertiesCount }}</p>
+                <x-admin.kpi-value class="mt-3" :value="$approvedUnpublishedPropertiesCount" />
                 <p class="admin-help">Approved inventory that is not live in public discovery yet.</p>
             </x-admin.panel>
 
             <x-admin.panel class="h-full">
                 <p class="admin-eyebrow">Live published</p>
-                <p class="mt-3 text-3xl font-semibold text-slate-950">{{ $livePublishedPropertiesCount }}</p>
+                <x-admin.kpi-value class="mt-3" :value="$livePublishedPropertiesCount" />
                 <p class="admin-help">Listings currently visible on the public property pages.</p>
             </x-admin.panel>
         </div>
@@ -69,7 +69,7 @@
         <x-admin.panel>
             <div class="space-y-4">
                 @forelse ($properties as $property)
-                    <div class="admin-subsurface p-5">
+                    <div class="admin-subsurface p-5 {{ $property->status !== 'approved' || ! $property->is_published || $property->images_count === 0 || $property->documents_count === 0 ? 'border-amber-300 bg-amber-50/30' : '' }}">
                         <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                             <div class="space-y-3">
                                 <div class="flex flex-wrap items-center gap-2">

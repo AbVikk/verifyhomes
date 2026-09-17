@@ -30,6 +30,14 @@
             <x-admin.stat-card label="Live published properties" :value="$livePublishedPropertiesCount" icon="properties" note="Visible in public discovery" :trend="[$livePublishedPropertiesCount, $approvedPropertiesCount, $approvedUnpublishedPropertiesCount, $pendingPropertiesCount]" />
             <x-admin.stat-card label="Open inspection requests" :value="$requestedInspectionCount" icon="inspection" note="Active coordination workload" :trend="$openInspectionSparkline" />
             <x-admin.stat-card label="Closed inspection requests" :value="$closedInspectionCount" icon="inspection" note="Completed, rejected, or cancelled" :trend="$closedInspectionSparkline" />
+            @if ($settlementOverview['count'] > 0)
+                <a href="{{ route('admin.settlements.index') }}" class="admin-stat-card block">
+                    <p class="admin-eyebrow">Landlord payouts</p><p class="mt-2 text-2xl font-semibold text-slate-900" title="{{ \App\Support\Currency::format($settlementOverview['outstanding']) }}">{{ \App\Support\Currency::formatCompact($settlementOverview['outstanding']) }} outstanding</p>
+                    <p class="mt-2 text-sm text-slate-600">{{ $settlementOverview['count'] }} awaiting settlement{{ $settlementOverview['overdue'] ? ' · '.$settlementOverview['overdue'].' overdue' : '' }}</p><p class="mt-3 text-sm font-medium text-sky-700">View settlements →</p>
+                </a>
+            @else
+                <a href="{{ route('admin.settlements.index') }}" class="admin-stat-card block"><p class="admin-eyebrow">Landlord payouts</p><p class="mt-2 text-lg font-semibold text-slate-900">All caught up</p><p class="mt-2 text-sm text-slate-600">No landlord payouts are currently outstanding.</p><p class="mt-3 text-sm font-medium text-sky-700">View settlements →</p></a>
+            @endif
         </div>
 
         <div class="grid gap-6 lg:grid-cols-2">
@@ -106,15 +114,15 @@
                         </div>
                         <div class="admin-micro-stat">
                             <span class="admin-micro-stat-label">Gross paid volume</span>
-                            <span class="admin-micro-stat-value">{{ $this->formatMoney($paymentSummary['grossAmount']) }}</span>
+                            <span class="admin-micro-stat-value" title="{{ $this->formatMoney($paymentSummary['grossAmount']) }}" aria-label="Exact value: {{ $this->formatMoney($paymentSummary['grossAmount']) }}">{{ \App\Support\Currency::formatCompact($paymentSummary['grossAmount']) }}</span>
                         </div>
                         <div class="admin-micro-stat">
                             <span class="admin-micro-stat-label">Platform fee earned</span>
-                            <span class="admin-micro-stat-value">{{ $this->formatMoney($paymentSummary['platformFeeAmount']) }}</span>
+                            <span class="admin-micro-stat-value" title="{{ $this->formatMoney($paymentSummary['platformFeeAmount']) }}" aria-label="Exact value: {{ $this->formatMoney($paymentSummary['platformFeeAmount']) }}">{{ \App\Support\Currency::formatCompact($paymentSummary['platformFeeAmount']) }}</span>
                         </div>
                         <div class="admin-micro-stat">
                             <span class="admin-micro-stat-label">Net after platform fee</span>
-                            <span class="admin-micro-stat-value">{{ $this->formatMoney($paymentSummary['netAmount']) }}</span>
+                            <span class="admin-micro-stat-value" title="{{ $this->formatMoney($paymentSummary['netAmount']) }}" aria-label="Exact value: {{ $this->formatMoney($paymentSummary['netAmount']) }}">{{ \App\Support\Currency::formatCompact($paymentSummary['netAmount']) }}</span>
                         </div>
                     </div>
 
@@ -143,7 +151,7 @@
                     @else
                         <div class="grid gap-4 lg:grid-cols-2">
                             @foreach ($attentionItems as $attentionItem)
-                                <a href="{{ $attentionItem['href'] }}" class="block rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-slate-300 hover:bg-slate-50">
+                                <a href="{{ $attentionItem['href'] }}" class="admin-workflow-state admin-workflow-state-action block transition hover:border-sky-300 hover:bg-sky-50">
                                     <div class="flex items-start justify-between gap-4">
                                         <div>
                                             <p class="text-sm font-semibold text-slate-900">{{ $attentionItem['label'] }}</p>

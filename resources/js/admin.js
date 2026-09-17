@@ -1,5 +1,6 @@
 import './bootstrap';
 import './terms-gates';
+import { destroyCameraCaptures, initializeCameraCaptures } from './camera-capture';
 
 const desktopBreakpoint = window.matchMedia('(min-width: 1024px)');
 
@@ -36,8 +37,10 @@ const closeSidebar = (sidebar, overlay) => {
 
     sidebar.classList.remove('translate-x-0');
     sidebar.classList.add('-translate-x-full');
+    sidebar.setAttribute('aria-hidden', 'true');
+    sidebar.closest('[data-admin-shell]')?.querySelectorAll('[data-admin-sidebar-open]').forEach((button) => button.setAttribute('aria-expanded', 'false'));
     overlay.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
+    document.body.classList.remove('admin-mobile-drawer-open');
 };
 
 const openSidebar = (sidebar, overlay) => {
@@ -47,139 +50,10 @@ const openSidebar = (sidebar, overlay) => {
 
     sidebar.classList.remove('-translate-x-full');
     sidebar.classList.add('translate-x-0');
+    sidebar.setAttribute('aria-hidden', 'false');
+    sidebar.closest('[data-admin-shell]')?.querySelectorAll('[data-admin-sidebar-open]').forEach((button) => button.setAttribute('aria-expanded', 'true'));
     overlay.classList.remove('hidden');
-    document.body.classList.add('overflow-hidden');
-};
-
-const initializeProfileCamera = () => {
-    const cameraRoots = document.querySelectorAll('[data-profile-camera-root]');
-
-    cameraRoots.forEach((root) => {
-        if (root.dataset.cameraInitialized === 'true') {
-            return;
-        }
-
-        root.dataset.cameraInitialized = 'true';
-
-        let stream = null;
-
-        const status = root.querySelector('[data-profile-camera-status]');
-        const startButton = root.querySelector('[data-profile-camera-start]');
-        const captureButton = root.querySelector('[data-profile-camera-capture]');
-        const stopButton = root.querySelector('[data-profile-camera-stop]');
-        const video = root.querySelector('[data-profile-camera-preview]');
-        const canvas = root.querySelector('[data-profile-camera-canvas]');
-
-        const updateStatus = (message) => {
-            if (status) {
-                status.textContent = message;
-            }
-        };
-
-        const stopStream = () => {
-            if (stream) {
-                stream.getTracks().forEach((track) => track.stop());
-                stream = null;
-            }
-
-            if (video) {
-                video.pause();
-                video.srcObject = null;
-                video.classList.add('hidden');
-            }
-
-            captureButton?.classList.add('hidden');
-            stopButton?.classList.add('hidden');
-        };
-
-        const supportsCamera = Boolean(
-            navigator.mediaDevices?.getUserMedia
-            && window.DataTransfer
-            && canvas?.getContext
-        );
-
-        if (!supportsCamera) {
-            updateStatus('Camera capture is not supported in this browser. Upload a profile picture from your device instead.');
-
-            if (startButton) {
-                startButton.disabled = true;
-                startButton.classList.add('opacity-60', 'cursor-not-allowed');
-            }
-
-            return;
-        }
-
-        startButton?.addEventListener('click', async () => {
-            try {
-                stopStream();
-
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user' },
-                    audio: false,
-                });
-
-                if (video) {
-                    video.srcObject = stream;
-                    video.classList.remove('hidden');
-                    await video.play();
-                }
-
-                captureButton?.classList.remove('hidden');
-                stopButton?.classList.remove('hidden');
-                updateStatus('Camera is ready. Capture a still photo when you are satisfied with the frame.');
-            } catch {
-                updateStatus('Camera access was denied or unavailable. Upload a profile picture from your device instead.');
-                stopStream();
-            }
-        });
-
-        captureButton?.addEventListener('click', () => {
-            const fileInput = document.querySelector('[data-profile-picture-input]');
-
-            if (!fileInput || !video || !canvas || !video.videoWidth || !video.videoHeight) {
-                updateStatus('We could not capture a photo from the camera preview.');
-
-                return;
-            }
-
-            const context = canvas.getContext('2d');
-
-            if (!context) {
-                updateStatus('This browser could not prepare a camera capture image.');
-
-                return;
-            }
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            canvas.toBlob((blob) => {
-                if (!blob) {
-                    updateStatus('We could not capture a photo from the camera preview.');
-
-                    return;
-                }
-
-                const capturedFile = new File([blob], 'landlord-profile-camera.jpg', { type: 'image/jpeg' });
-                const transfer = new DataTransfer();
-
-                transfer.items.add(capturedFile);
-                fileInput.files = transfer.files;
-                fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-
-                updateStatus('Captured photo is ready. Save the profile form to keep it.');
-                stopStream();
-            }, 'image/jpeg', 0.92);
-        });
-
-        stopButton?.addEventListener('click', () => {
-            stopStream();
-            updateStatus('Camera stopped. You can start it again or upload a picture from your device.');
-        });
-
-        window.addEventListener('beforeunload', stopStream);
-    });
+    document.body.classList.add('admin-mobile-drawer-open');
 };
 
 const initializeLandlordDocumentUploads = () => {
@@ -309,7 +183,7 @@ const resetProcessingButtons = () => {
 document.addEventListener('DOMContentLoaded', () => {
     const shell = document.querySelector('[data-admin-shell]');
 
-    initializeProfileCamera();
+    initializeCameraCaptures();
     initializeLandlordDocumentUploads();
     initializeProcessingForms();
     resetProcessingButtons();
@@ -334,14 +208,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const notificationsToggle = shell.querySelector('[data-admin-notifications-toggle]');
     const notificationsMenu = shell.querySelector('[data-admin-notifications-menu]');
 
-    const persistedCollapsedState = readCollapsedState(collapsedStorageKey);
+    let collapsedPreference = readCollapsedState(collapsedStorageKey);
     const initialCollapsedState = shell.getAttribute('data-admin-sidebar-collapsed') === 'true';
 
-    if (persistedCollapsedState !== initialCollapsedState) {
-        applyCollapsedState(shell, persistedCollapsedState);
-        writeCollapsedState(collapsedStorageKey, collapsedCookieName, persistedCollapsedState);
+    const syncCollapsedState = () => {
+        if (!desktopBreakpoint.matches) {
+            applyCollapsedState(shell, false);
+            sidebar?.setAttribute('aria-hidden', 'true');
+
+            return;
+        }
+
+        applyCollapsedState(shell, collapsedPreference);
+        sidebar?.setAttribute('aria-hidden', 'false');
+    };
+
+    if (desktopBreakpoint.matches && collapsedPreference !== initialCollapsedState) {
+        applyCollapsedState(shell, collapsedPreference);
+        writeCollapsedState(collapsedStorageKey, collapsedCookieName, collapsedPreference);
     } else {
-        applyCollapsedState(shell, initialCollapsedState);
+        syncCollapsedState();
     }
 
     const closeProfileMenu = () => {
@@ -370,11 +256,22 @@ document.addEventListener('DOMContentLoaded', () => {
         button.addEventListener('click', () => closeSidebar(sidebar, overlay));
     });
 
+    overlay?.addEventListener('click', () => closeSidebar(sidebar, overlay));
+
+    sidebar?.querySelectorAll('nav a[href]').forEach((link) => {
+        link.addEventListener('click', () => closeSidebar(sidebar, overlay));
+    });
+
     collapseButtons.forEach((button) => {
         button.addEventListener('click', () => {
+            if (!desktopBreakpoint.matches) {
+                return;
+            }
+
             const collapsed = shell.getAttribute('data-admin-sidebar-collapsed') === 'true';
             const nextState = !collapsed;
 
+            collapsedPreference = nextState;
             applyCollapsedState(shell, nextState);
             writeCollapsedState(collapsedStorageKey, collapsedCookieName, nextState);
         });
@@ -444,13 +341,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     desktopBreakpoint.addEventListener('change', (event) => {
-        if (event.matches) {
-            closeSidebar(sidebar, overlay);
-        }
+        closeSidebar(sidebar, overlay);
+        syncCollapsedState();
+    });
+
+    document.addEventListener('livewire:navigating', () => {
+        destroyCameraCaptures();
+        closeSidebar(sidebar, overlay);
     });
 
     document.addEventListener('livewire:navigated', () => {
-        initializeProfileCamera();
+        closeSidebar(sidebar, overlay);
+        initializeCameraCaptures();
         initializeLandlordDocumentUploads();
         initializeProcessingForms();
         resetProcessingButtons();

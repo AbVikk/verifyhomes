@@ -117,7 +117,7 @@
             </div>
         </div>
 
-        <x-modal name="inspection-terms-public" maxWidth="2xl">
+        <x-modal name="inspection-terms-public" maxWidth="3xl">
             <div class="vh-modal-panel">
                 <div class="vh-modal-header">
                     <h3 class="text-lg font-semibold text-slate-950">Inspection terms</h3>

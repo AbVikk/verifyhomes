@@ -318,7 +318,9 @@ class PublicPropertyAndInspectionTest extends TestCase
         $this->actingAs($tenant);
 
         Livewire::test(TenantInspectionRequestShow::class, ['inspectionRequest' => $inspectionRequest])
-            ->assertSee('Inspection date proposed')
+            ->assertSee('Review your inspection schedule')
+            ->assertSee('Accept schedule')
+            ->assertSee('Request another date')
             ->call('acceptSchedule')
             ->assertSee('Inspection schedule accepted');
 
@@ -387,6 +389,12 @@ class PublicPropertyAndInspectionTest extends TestCase
 
         $transaction = PaymentTransaction::query()->sole();
         $transaction->update(['status' => 'paid', 'paid_at' => now()]);
+
+        $this->actingAs($tenant)
+            ->get(route('tenant.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->id]))
+            ->assertOk()
+            ->assertSee('Inspection booked')
+            ->assertSee('No action is required right now. Please attend the inspection at the scheduled time.');
 
         $this->actingAs($admin);
         Livewire::test(AdminInspectionRequestShow::class, ['inspectionRequest' => $inspectionRequest])
@@ -1307,6 +1315,12 @@ class PublicPropertyAndInspectionTest extends TestCase
             'next_payment_due_at' => now()->addDays(61),
         ]);
 
+        $this->actingAs($tenant)
+            ->get(route('properties.show', $candidateProperty))
+            ->assertOk()
+            ->assertSee('You already have an active rental')
+            ->assertSee('View My Stay');
+
         $response = $this->actingAs($tenant)
             ->withSession($this->completedTermsGateSession('inspection-request:property:'.$candidateProperty->id))
             ->from(route('properties.show', $candidateProperty))
@@ -1348,6 +1362,12 @@ class PublicPropertyAndInspectionTest extends TestCase
             'payment_cycle_months' => 12,
         ]);
 
+        $this->actingAs($tenant)
+            ->get(route('properties.show', $anotherProperty))
+            ->assertOk()
+            ->assertSee('Your next rental is already secured')
+            ->assertSee('View Upcoming Stay');
+
         $response = $this->actingAs($tenant)
             ->withSession($this->completedTermsGateSession('inspection-request:property:'.$anotherProperty->id))
             ->from(route('properties.show', $anotherProperty))
@@ -1382,6 +1402,8 @@ class PublicPropertyAndInspectionTest extends TestCase
 
         TenantProfile::create([
             'user_id' => $tenant->id,
+            'verification_status' => 'verified',
+            'verified_at' => now(),
         ]);
 
         return $tenant;

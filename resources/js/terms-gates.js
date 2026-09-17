@@ -285,9 +285,16 @@ const initializeTermsGates = () => {
             }
 
             const remaining = state.secondsRemaining(nowMs());
+
+            if (remaining === 0) {
+                modalStatus.textContent = 'You can now accept the terms.';
+
+                return;
+            }
+
             const unit = remaining === 1 ? 'second' : 'seconds';
 
-            modalStatus.textContent = `Keep this modal open for ${remaining} more ${unit} before the checkbox unlocks.`;
+            modalStatus.textContent = `Please review the terms. You can accept in ${remaining} ${unit}.`;
         };
 
         const renderWarning = () => {
@@ -469,24 +476,6 @@ const initializeTermsGates = () => {
                 state.showWarning('We could not open the terms right now. Please try again.', nowMs());
                 renderWarning();
             });
-        });
-
-        modalCheckbox?.addEventListener('click', (event) => {
-            if (state.isUnlocked(nowMs())) {
-                return;
-            }
-
-            event.preventDefault();
-            showEarlyWarning();
-        });
-
-        modalCheckbox?.closest('label')?.addEventListener('click', (event) => {
-            if (state.isUnlocked(nowMs())) {
-                return;
-            }
-
-            event.preventDefault();
-            showEarlyWarning();
         });
 
         modalCheckbox?.addEventListener('change', async () => {

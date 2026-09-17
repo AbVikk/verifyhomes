@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use App\Support\RentalPeriod;
 
 class Occupancy extends Model
 {
@@ -65,6 +67,18 @@ class Occupancy extends Model
         return $this->hasMany(OccupancyComplaint::class);
     }
 
+    public function tenancyAgreement(): HasOne
+    {
+        return $this->hasOne(TenancyAgreement::class);
+    }
+
+    public function moveInConditionReport(): HasOne
+    {
+        return $this->hasOne(MoveInConditionReport::class);
+    }
+
+    public function maintenanceRequests(): HasMany { return $this->hasMany(MaintenanceRequest::class); }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->whereIn('status', ['active', 'move_out_pending']);
@@ -78,6 +92,19 @@ class Occupancy extends Model
     public function paymentCycleMonths(): int
     {
         return max(1, (int) ($this->payment_cycle_months ?: 12));
+    }
+
+    public function rentalPeriodDays(): int
+    {
+        return RentalPeriod::daysForMonths(
+            $this->paymentCycleMonths(),
+            $this->started_at ? Carbon::instance($this->started_at) : Carbon::instance($this->created_at),
+        );
+    }
+
+    public function rentalPeriodLabel(): string
+    {
+        return RentalPeriod::label($this->rentalPeriodDays(), $this->paymentCycleMonths());
     }
 
     public function computedNextPaymentDueAt(): ?Carbon

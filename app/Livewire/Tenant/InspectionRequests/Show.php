@@ -14,6 +14,7 @@ use App\Support\Currency;
 use App\Support\InspectionRequestOptions;
 use App\Support\Payments\PaymentGatewayManager;
 use App\Support\TermsGateService;
+use App\Support\TenantVerification;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -79,6 +80,7 @@ class Show extends Component
             'latestRentPaymentTransaction' => $latestRentPaymentTransaction,
             'latestPurchasePaymentTransaction' => $latestPurchasePaymentTransaction,
             'purchaseReceipt' => $purchaseReceipt,
+            'tenantIsVerified' => TenantVerification::isVerified($this->currentUser()),
         ])->layout('layouts.dashboard-shell', $this->tenantShell('Inspection Request'));
     }
 
@@ -135,6 +137,15 @@ class Show extends Component
                     'notes' => 'Tenant accepted the proposed inspection schedule.',
                 ]);
                 $this->notifyAdmins($request, 'Inspection schedule accepted', 'The tenant accepted the proposed inspection schedule.');
+                app(WorkflowNotifier::class)->notify(
+                    $this->currentUser(),
+                    'inspection-schedule-accepted:'.$request->getKey().':'.$request->scheduled_at?->getTimestamp(),
+                    'Inspection schedule accepted',
+                    $request->property ? "You accepted the proposed inspection schedule for {$request->property->title}. Next: complete the inspection booking fee to confirm your booking." : 'You accepted the proposed inspection schedule. Next: complete the inspection booking fee.',
+                    route('tenant.inspection-requests.show', ['inspectionRequestId' => $request->getKey()]),
+                    'inspection_update',
+                    'Complete booking',
+                );
             });
 
             $this->inspectionRequest = $this->inspectionRequest->fresh();
@@ -169,7 +180,12 @@ class Show extends Component
                 'changed_by' => $this->currentUserId(),
                 'notes' => $historyNote,
             ]);
-            $this->notifyAdmins($request, 'Inspection schedule response', $historyNote);
+            $requestedAnotherDate = ($extra['schedule_response'] ?? null) === 'reschedule_requested';
+            $this->notifyAdmins(
+                $request,
+                $requestedAnotherDate ? 'Tenant requested another inspection date' : 'Inspection schedule response',
+                $requestedAnotherDate ? 'The tenant requested another date. Next: review the note and propose a new inspection schedule.' : $historyNote,
+            );
         });
 
         $this->inspectionRequest = $this->inspectionRequest->fresh();

@@ -184,7 +184,7 @@ class Index extends Component
             'propertyTypes' => LandlordOptions::propertyTypes(),
             'intentTabs' => $intentTabs,
             'listingIntentHelpText' => $listingIntentHelpText,
-        ])->layout('layouts.app');
+        ])->layout('layouts.public');
     }
 
     public function formatMoney(float|int|string|null $amount): string

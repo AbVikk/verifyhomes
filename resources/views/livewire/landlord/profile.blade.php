@@ -180,33 +180,14 @@
                     </div>
 
                     <div>
-                        <label for="profilePicture" class="admin-label">Upload profile picture</label>
-                        <input wire:model="profilePicture" id="profilePicture" data-profile-picture-input type="file" accept="image/png,image/jpeg,image/webp" class="admin-control file:mr-4 file:border-0 file:bg-transparent file:px-0 file:py-0 file:text-sm file:font-medium" />
+                        <label for="profilePicture" class="admin-label">Upload photo</label>
+                        <input wire:model="profilePicture" id="profilePicture" type="file" accept="image/png,image/jpeg,image/webp" class="admin-control file:mr-4 file:border-0 file:bg-transparent file:px-0 file:py-0 file:text-sm file:font-medium" />
                         <div wire:loading wire:target="profilePicture" class="admin-help">Preparing image...</div>
                         <p class="admin-help">Accepted file types: JPG, JPEG, PNG, WEBP up to 5MB.</p>
                         @error('profilePicture') <p class="admin-error">{{ $message }}</p> @enderror
                     </div>
 
-                    <div wire:ignore data-profile-camera-root class="space-y-3 rounded-2xl border border-slate-200 p-4">
-                        <div class="flex flex-wrap gap-3">
-                            <button type="button" data-profile-camera-start class="admin-button admin-button-secondary">
-                                Use Camera
-                            </button>
-                            <button type="button" data-profile-camera-capture class="admin-button admin-button-primary hidden">
-                                Capture Photo
-                            </button>
-                            <button type="button" data-profile-camera-stop class="admin-action-link hidden">
-                                Stop Camera
-                            </button>
-                        </div>
-
-                        <p data-profile-camera-status class="text-sm text-slate-600">
-                            Camera capture is optional. If camera access is blocked or unsupported, upload a picture from your device instead.
-                        </p>
-
-                        <video data-profile-camera-preview class="hidden w-full rounded-2xl border border-slate-200 bg-slate-950/90" autoplay playsinline muted></video>
-                        <canvas data-profile-camera-canvas class="hidden"></canvas>
-                    </div>
+                    <x-camera-capture input-id="profilePicture" label="Take photo" kind="profile" />
 
                     <div class="flex flex-wrap gap-3 border-t border-slate-200 pt-4">
                         @if ($profilePicture)
@@ -220,6 +201,11 @@
                                 Remove Current Picture
                             </button>
                         @endif
+
+                        <button wire:click="saveProfilePicture" wire:loading.attr="disabled" wire:target="saveProfilePicture,profilePicture" type="button" @disabled(! $profilePicture) class="admin-button admin-button-primary">
+                            <span wire:loading.remove wire:target="saveProfilePicture,profilePicture">Save photo</span>
+                            <span wire:loading wire:target="saveProfilePicture,profilePicture">Saving...</span>
+                        </button>
                     </div>
                 </div>
             </x-admin.panel>

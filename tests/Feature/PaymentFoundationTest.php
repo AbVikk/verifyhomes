@@ -312,7 +312,12 @@ class PaymentFoundationTest extends TestCase
 
         $callbackResponse = $this->actingAs($tenant)->get(route('tenant.payments.callback', ['reference' => $transaction->reference]));
 
-        $callbackResponse->assertRedirect(route('tenant.payments.index', ['reference' => $transaction->reference]));
+        $callbackResponse->assertOk()
+            ->assertViewIs('payments.callback-success')
+            ->assertViewHas('returnUrl', route('tenant.payments.index', ['reference' => $transaction->reference]))
+            ->assertSee('Payment confirmed')
+            ->assertSee('data-payment-return-success', false)
+            ->assertSee('Return to payments');
 
         $transaction->refresh();
 
@@ -374,7 +379,10 @@ class PaymentFoundationTest extends TestCase
 
         $callbackResponse = $this->actingAs($tenant)->get(route('tenant.payments.callback', ['reference' => $transaction->reference]));
 
-        $callbackResponse->assertRedirect(route('tenant.payments.index', ['reference' => $transaction->reference]));
+        $callbackResponse->assertOk()
+            ->assertViewIs('payments.callback-success')
+            ->assertViewHas('returnUrl', route('tenant.payments.index', ['reference' => $transaction->reference]))
+            ->assertSee('Return to payments');
 
         $transaction->refresh();
         $property->refresh();
@@ -385,6 +393,33 @@ class PaymentFoundationTest extends TestCase
         $this->assertSame('callback_verification', $transaction->metadata['verified_via']);
         $this->assertSame(1, $property->occupied_units);
         $this->assertSame(1, $property->available_units);
+
+        $duplicateCallback = $this->actingAs($tenant)->get(route('tenant.payments.callback', ['reference' => $transaction->reference]));
+
+        $duplicateCallback->assertOk()->assertViewIs('payments.callback-success');
+        $this->assertSame(1, $property->fresh()->occupied_units);
+    }
+
+    public function test_failed_callback_keeps_the_normal_payment_return_and_never_renders_the_success_page(): void
+    {
+        $tenant = $this->createTenant();
+        $transaction = PaymentTransactionRecorder::createPending([
+            'payer_id' => $tenant->getKey(),
+            'transaction_type' => 'rent_payment',
+            'gross_amount' => 150000,
+            'provider' => 'stub',
+        ]);
+
+        PaymentTransactionRecorder::markFailed($transaction, 'stub-failed-reference', [
+            'gateway_status' => 'failed',
+        ]);
+
+        $response = $this->actingAs($tenant)->get(route('tenant.payments.callback', [
+            'reference' => $transaction->reference,
+        ]));
+
+        $response->assertRedirect(route('tenant.payments.index', ['reference' => $transaction->reference]));
+        $this->assertSame('failed', $transaction->fresh()->status);
     }
 
     public function test_provider_connection_failure_is_handled_with_friendly_message(): void
@@ -517,7 +552,7 @@ class PaymentFoundationTest extends TestCase
         $propertyResponse->assertOk();
         $propertyResponse->assertSee('Rent payment has not started yet.');
         $propertyResponse->assertSee('Your inspection is complete. You can now pay rent for this listing.');
-        $propertyResponse->assertSee('>Pay rent<', false);
+        $propertyResponse->assertSee('>Continue to Payment<', false);
     }
 
     public function test_purchase_payment_copy_is_clear_for_sale_listings(): void
@@ -627,6 +662,14 @@ class PaymentFoundationTest extends TestCase
         $propertyResponse->assertSee('Your rent payment is complete for this listing.');
         $propertyResponse->assertSee('Rent paid');
         $propertyResponse->assertDontSee('>Pay rent<', false);
+
+        $paymentsResponse = $this->actingAs($tenant)->get(route('tenant.payments.index', ['reference' => $transaction->reference]));
+
+        $paymentsResponse->assertOk()
+            ->assertSee('Rent payment confirmed')
+            ->assertSee('Your payment for Paid Rent State Property was successful.')
+            ->assertSee('Your stay is now active.')
+            ->assertSee('View My Stay');
     }
 
     public function test_paystack_test_mode_webhook_verification_marks_transaction_paid_cleanly(): void
@@ -701,7 +744,37 @@ class PaymentFoundationTest extends TestCase
         $this->assertDatabaseCount('payment_transactions', 0);
     }
 
-    protected function createTenant(?string $email = null): User
+    public function test_unverified_tenant_cannot_start_any_payment_checkout(): void
+    {
+        config()->set('payments.default_provider', 'stub');
+
+        $tenant = $this->createTenant(verified: false);
+        $rentProperty = $this->createProperty(['slug' => 'kyc-rent-property']);
+        $bookingRequest = $this->createInspectionRequest($tenant, $rentProperty);
+        $purchaseProperty = $this->createProperty([
+            'slug' => 'kyc-house-property',
+            'listing_intent' => 'for_sale',
+            'property_type' => 'house',
+        ]);
+        $landProperty = $this->createProperty([
+            'slug' => 'kyc-land-property',
+            'listing_intent' => 'for_sale',
+            'property_type' => 'land',
+            'total_units' => 3,
+            'available_units' => 3,
+        ]);
+
+        $this->actingAs($tenant)
+            ->post(route('tenant.inspection-requests.payments.store', $bookingRequest), ['accepted_inspection_terms' => '1'])
+            ->assertRedirect(route('tenant.verification'));
+        $this->actingAs($tenant)->post(route('tenant.properties.rent-payments.store', $rentProperty))->assertRedirect(route('tenant.verification'));
+        $this->actingAs($tenant)->post(route('tenant.properties.purchase-payments.store', $purchaseProperty))->assertRedirect(route('tenant.verification'));
+        $this->actingAs($tenant)->post(route('tenant.properties.purchase-payments.store', $landProperty), ['purchase_units' => 2])->assertRedirect(route('tenant.verification'));
+
+        $this->assertDatabaseCount('payment_transactions', 0);
+    }
+
+    protected function createTenant(?string $email = null, bool $verified = true): User
     {
         Role::findOrCreate('tenant', 'web');
 
@@ -714,6 +787,8 @@ class PaymentFoundationTest extends TestCase
 
         TenantProfile::create([
             'user_id' => $tenant->id,
+            'verification_status' => $verified ? 'verified' : 'not_submitted',
+            'verified_at' => $verified ? now() : null,
         ]);
 
         return $tenant;

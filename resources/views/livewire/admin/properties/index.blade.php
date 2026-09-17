@@ -128,8 +128,7 @@
                                             @endif
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-600">
-                                            <p class="font-medium text-slate-900">{{ $property->availabilityLabel() }}</p>
-                                            <p class="mt-1">{{ $property->available_units }} available / {{ $property->total_units }} total</p>
+                                            <p class="font-medium text-slate-900">{{ $property->available_units }} / {{ $property->total_units }} available</p>
                                             <p class="mt-1">{{ $property->occupied_units }} occupied</p>
                                         </td>
                                         <td class="px-4 py-4 text-sm text-slate-600">{{ $property->images_count }} images, {{ $property->documents_count }} documents</td>

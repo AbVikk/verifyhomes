@@ -7,6 +7,8 @@ use App\Livewire\Concerns\InteractsWithRoleShells;
 use App\Models\PaymentTransaction;
 use App\Support\Currency;
 use App\Support\Payments\PaymentGatewayManager;
+use App\Models\LandlordSettlement;
+use App\Support\LandlordSettlementService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
@@ -41,7 +43,8 @@ class Index extends Component
                 ->whereHas('property', fn ($query) => $query->where('landlord_id', $this->currentUserId()))
                 ->where('status', 'paid')
                 ->whereIn('transaction_type', $landlordVisibleTypes)
-                ->with(['payer', 'property'])
+                ->with(['payer', 'property', 'landlordSettlements' => fn ($query) => $query->where('status', 'paid')->latest('recorded_at')])
+                ->withSum(['landlordSettlements as paid_to_date' => fn ($query) => $query->where('status', 'paid')], 'payout_amount')
             : null;
 
         $transactions = $paymentsAvailable
@@ -106,24 +109,48 @@ class Index extends Component
 
     public function platformFeeSummary(PaymentTransaction $transaction): string
     {
-        $percentage = (float) ($transaction->platform_fee_percentage ?? 0);
-
-        if ($percentage <= 0) {
-            return 'No platform fee is being deducted from this transaction.';
-        }
-
         return sprintf(
-            'Platform fee: %s (%s%%). Landlord net snapshot: %s.',
-            $this->formatMoney($transaction->platform_fee_amount, $transaction->currency),
-            number_format($percentage, 2),
+            '%s: %s. Landlord amount: %s.',
+            $this->paidAmountLabel($transaction),
+            $this->formatMoney($transaction->gross_amount, $transaction->currency),
             $this->formatMoney($transaction->net_amount, $transaction->currency),
         );
+    }
+
+    public function paidAmountLabel(PaymentTransaction $transaction): string
+    {
+        return match ($transaction->transaction_type) {
+            'rent_payment' => 'Rent paid',
+            'house_purchase_payment', 'land_purchase_payment', 'purchase_payment' => 'Purchase paid',
+            default => 'Payment paid',
+        };
     }
 
     public function workflowImpactSummary(PaymentTransaction $transaction): ?string
     {
         return data_get($transaction->metadata, 'occupancy_update_message')
             ?? data_get($transaction->metadata, 'purchase_update_message');
+    }
+
+    public function settlementPaidToDate(PaymentTransaction $transaction): float
+    {
+        return (float) ($transaction->paid_to_date ?? 0);
+    }
+
+    public function settlementOutstanding(PaymentTransaction $transaction): float
+    {
+        return app(LandlordSettlementService::class)->outstanding($transaction);
+    }
+
+    public function settlementStatus(PaymentTransaction $transaction): string
+    {
+        if (app(LandlordSettlementService::class)->isLegacySettled($transaction)) {
+            return 'Legacy payout recorded';
+        }
+        $paid = $this->settlementPaidToDate($transaction);
+        $outstanding = $this->settlementOutstanding($transaction);
+
+        return $paid <= 0 ? 'Awaiting payout' : ($outstanding <= 0 ? 'Paid' : 'Partially paid');
     }
 
     protected function paymentsAvailable(): bool

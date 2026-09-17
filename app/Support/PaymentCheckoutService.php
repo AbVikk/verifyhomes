@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\InspectionRequest;
 use App\Models\PaymentTransaction;
 use App\Models\Property;
+use App\Models\PropertyRentPlan;
 use App\Models\User;
 use App\Support\Payments\PaymentGatewayManager;
 use Illuminate\Support\Facades\Schema;
@@ -57,9 +58,14 @@ class PaymentCheckoutService
         ]);
     }
 
-    public function initiateRentPayment(Property $property, User $payer): ?PaymentTransaction
+    public function initiateRentPayment(Property $property, User $payer, ?int $rentPlanId = null): ?PaymentTransaction
     {
         if (! Schema::hasTable('payment_transactions')) {
+            return null;
+        }
+
+        $plan = $this->resolveRentPlan($property, $rentPlanId);
+        if (! $plan) {
             return null;
         }
 
@@ -72,10 +78,15 @@ class PaymentCheckoutService
             ->first();
 
         if ($existingTransaction) {
-            return $existingTransaction;
+            if ($existingTransaction->status === 'paid') return $existingTransaction;
+            if ((int) data_get($existingTransaction->metadata, 'rent_plan_id', 0) === $plan['id']) return $existingTransaction;
+            PaymentTransactionRecorder::markFailed($existingTransaction, $existingTransaction->provider_reference, [
+                'checkout_reset_reason' => 'rent_plan_changed',
+                'checkout_reset_note' => 'Checkout was reset because the selected rental plan changed before payment.',
+            ]);
         }
 
-        $grossAmount = (float) $property->rent_amount;
+        $grossAmount = $plan['amount'];
         $reference = 'txn_'.now()->format('YmdHis').'_'.Str::lower(Str::random(8));
         $gateway = $this->paymentGatewayManager->default();
         $checkout = $gateway->initiateRentPaymentCheckout($property, $payer, $grossAmount, $reference);
@@ -90,13 +101,32 @@ class PaymentCheckoutService
             'status' => $checkout['status'] ?? 'initiated',
             'gross_amount' => $grossAmount,
             'currency' => 'NGN',
-            'metadata' => $checkout['metadata'] ?? [
+            'metadata' => array_replace($checkout['metadata'] ?? [
                 'checkout_context' => 'rent_payment',
                 'property_title' => $property->title,
                 'listing_intent' => $property->listing_intent,
                 'units_reserved' => 1,
-            ],
+            ], [
+                'property_rent_plan_id' => $plan['id'] ?: null,
+                'rent_plan_id' => $plan['id'] ?: null,
+                'rental_period_months' => $plan['months'],
+                'rental_period_days' => RentalPeriod::daysForMonths($plan['months']),
+                'selected_rent_plan_amount' => $grossAmount,
+            ]),
         ]);
+    }
+
+    protected function resolveRentPlan(Property $property, ?int $rentPlanId): ?array
+    {
+        if (Schema::hasTable('property_rent_plans')) {
+            $plans = $property->rentPlans();
+            if ($plans->exists()) {
+                $plan = $rentPlanId ? $plans->where('is_active', true)->find($rentPlanId) : null;
+                return $plan ? ['id' => $plan->getKey(), 'months' => $plan->period_months, 'amount' => (float) $plan->amount] : null;
+            }
+        }
+
+        return ['id' => 0, 'months' => 12, 'amount' => (float) $property->rent_amount];
     }
 
     public function initiatePurchasePayment(Property $property, User $payer, int $unitsRequested = 1): ?PaymentTransaction

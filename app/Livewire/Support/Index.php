@@ -1,0 +1,4 @@
+<?php
+namespace App\Livewire\Support;
+use App\Livewire\Concerns\InteractsWithAuthenticatedUser; use App\Livewire\Concerns\InteractsWithRoleShells; use App\Models\SupportRequest; use Illuminate\View\View; use Livewire\Component;
+class Index extends Component { use InteractsWithAuthenticatedUser,InteractsWithRoleShells; public function render():View { $user=$this->currentUser(); $requests=SupportRequest::query()->where('user_id',$user->id)->latest('updated_at')->get(); $shell=$user->isLandlord()?$this->landlordShell('Support'):$this->tenantShell('Support'); return view('livewire.support.index',['requests'=>$requests,'createRoute'=>$user->isLandlord()?route('landlord.support.create'):route('tenant.support.create'),'showRoutePrefix'=>$user->isLandlord()?'landlord.support.show':'tenant.support.show'])->layout('layouts.dashboard-shell',$shell); } }

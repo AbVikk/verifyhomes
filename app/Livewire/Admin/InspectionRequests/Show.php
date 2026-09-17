@@ -171,12 +171,10 @@ class Show extends Component
                     $tenant,
                     'inspection-completed:'.$inspectionRequest->getKey(),
                     'Your inspection is complete',
-                    $inspectionRequest->outcome_type === 'inspected'
-                        ? 'Your inspection is complete. You can now continue to rent or purchase this property from your inspection detail.'
-                        : 'Your inspection outcome is ready to review.',
+                    $this->completionMessage($inspectionRequest),
                     route('tenant.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]),
                     'inspection_update',
-                    'View next step',
+                    $inspectionRequest->outcome_type === 'inspected' ? $this->completionActionLabel($inspectionRequest) : 'View outcome',
                 );
             }
 
@@ -195,15 +193,42 @@ class Show extends Component
             app(WorkflowNotifier::class)->notify(
                 $tenant,
                 'inspection-scheduled:'.$inspectionRequest->getKey().':'.$inspectionRequest->scheduled_at?->getTimestamp(),
-                $rescheduled ? 'Inspection schedule changed' : 'Inspection date proposed',
+                $rescheduled ? 'Your inspection has been rescheduled' : 'Review your proposed inspection schedule',
                 $inspectionRequest->scheduled_at
-                ? 'VerifyHomes proposed '.($rescheduled ? 'a new ' : 'an ').'inspection time for '.$inspectionRequest->property?->title.': '.$inspectionRequest->scheduled_at->format('M j, Y g:i A').'.'
+                ? ($rescheduled ? 'Your booking fee remains confirmed. You will not be charged again. ' : '').'VerifyHomes proposed '.($rescheduled ? 'a new ' : 'an ').'inspection time for '.$inspectionRequest->property?->title.': '.$inspectionRequest->scheduled_at->format('M j, Y g:i A').'. Next: accept the schedule or request another date.'
                 : 'VerifyHomes updated your inspection schedule.',
                 route('tenant.inspection-requests.show', ['inspectionRequestId' => $inspectionRequest->getKey()]),
                 'inspection_update',
                 'Review schedule',
             );
         }
+    }
+
+    protected function completionMessage(InspectionRequest $inspectionRequest): string
+    {
+        $property = $inspectionRequest->property?->title ?? 'this property';
+        if ($inspectionRequest->outcome_type === 'inspected') {
+            return match ($inspectionRequest->property?->listing_intent) {
+                'for_sale' => "Your inspection for {$property} is complete. Next: continue to purchase if you are satisfied.",
+                'for_lease' => "Your inspection for {$property} is complete. Next: follow the lease coordination instructions in your inspection detail.",
+                default => "Your inspection for {$property} is complete. Next: choose a rental plan and continue to rent payment if you are satisfied.",
+            };
+        }
+        return match ($inspectionRequest->outcome_type) {
+            'tenant_no_show' => "Your inspection for {$property} was marked as missed. Review the request for the safe next step.",
+            'property_unavailable' => "{$property} is unavailable for this inspection. VerifyHomes will not proceed with rent or purchase from this request.",
+            'follow_up_needed' => "Inspection follow-up is required for {$property}. VerifyHomes will update you with the next step.",
+            default => "Your inspection outcome for {$property} is ready to review.",
+        };
+    }
+
+    protected function completionActionLabel(InspectionRequest $inspectionRequest): string
+    {
+        return match ($inspectionRequest->property?->listing_intent) {
+            'for_sale' => 'Continue to purchase',
+            'for_lease' => 'View lease instructions',
+            default => 'Continue to rent',
+        };
     }
 
     public function render(): View

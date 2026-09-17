@@ -3,10 +3,13 @@
 namespace App\Support;
 
 use App\Models\Property;
+use App\Models\Occupancy;
 use App\Models\PaymentTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
+use App\Support\RentalPeriod;
 
 class PaymentTransactionRecorder
 {
@@ -129,6 +132,25 @@ class PaymentTransactionRecorder
             $property = Property::query()->find($propertyId);
         }
 
+        $existingOccupancy = $propertyId && Arr::get($attributes, 'payer_id')
+            ? Occupancy::query()
+                ->where('property_id', $propertyId)
+                ->where('tenant_id', Arr::get($attributes, 'payer_id'))
+                ->active()
+                ->latest('started_at')
+                ->first()
+            : null;
+        $rentalPeriodMonths = max(1, (int) data_get(
+            $metadata,
+            'rental_period_months',
+            $existingOccupancy?->paymentCycleMonths() ?? 12,
+        ));
+        $rentalPeriodDays = max(1, (int) data_get(
+            $metadata,
+            'rental_period_days',
+            RentalPeriod::daysForMonths($rentalPeriodMonths, Carbon::now()),
+        ));
+
         return array_replace($metadata, [
             'pricing_model' => $property?->pricing_model,
             'pricing_input_amount' => $property?->pricing_input_amount,
@@ -136,6 +158,8 @@ class PaymentTransactionRecorder
             'landlord_net_amount' => $property?->landlord_net_amount ?? $amounts['net_amount'],
             'platform_fee_percentage' => $amounts['platform_fee_percentage'],
             'platform_fee_amount' => $amounts['platform_fee_amount'],
+            'rental_period_months' => $rentalPeriodMonths,
+            'rental_period_days' => $rentalPeriodDays,
         ]);
     }
 }
