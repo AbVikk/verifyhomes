@@ -47,6 +47,8 @@ class LandlordManagementTest extends TestCase
         $response->assertSee('Profile Information');
         $response->assertSee('Update Password');
         $response->assertSee('Delete Account');
+        $response->assertSee('Contact Support');
+        $response->assertSee('href="'.route('landlord.support.create').'"', false);
     }
 
     public function test_landlord_can_update_account_information_from_shell_profile(): void

@@ -44,7 +44,9 @@ class TenantShellRenderTest extends TestCase
             ->assertSee('Account and workspace details')
             ->assertSee('Profile Information')
             ->assertSee('Update Password')
-            ->assertSee('Delete Account');
+            ->assertSee('Delete Account')
+            ->assertSee('Contact Support')
+            ->assertSee('href="'.route('tenant.support.create').'"', false);
 
         $this->actingAs($tenant)->get(route('tenant.payments.index'))
             ->assertOk()

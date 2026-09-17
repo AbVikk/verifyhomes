@@ -159,6 +159,12 @@
                             <span wire:loading wire:target="saveProfilePicture,profilePicture">Saving...</span>
                         </button>
                     </div>
+
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <h3 class="text-sm font-semibold text-slate-900">Need help?</h3>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">Contact VerifyHomes Support if you need help with your account, verification, inspection, payment, rent, purchase, maintenance, or another issue.</p>
+                        <a href="{{ route('tenant.support.create') }}" class="admin-button admin-button-primary mt-4 inline-flex">Contact Support</a>
+                    </div>
                 </div>
             </x-admin.panel>
         </div>
