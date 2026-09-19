@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Livewire\Support\Create;
+use App\Livewire\Support\ActiveDrawer;
 use App\Livewire\Support\Show;
 use App\Models\InspectionRequest;
 use App\Models\MaintenanceRequest;
@@ -91,11 +92,88 @@ class SupportRequestTest extends TestCase
 
         $attachment = SupportRequestAttachment::firstOrFail();
         Storage::disk('local')->assertExists($attachment->file_path);
+        $this->actingAs($tenant)->get(route('tenant.support.attachments.view', [$attachment->supportRequest, $attachment]))
+            ->assertOk()
+            ->assertHeader('cache-control', 'no-store, private')
+            ->assertHeader('content-disposition', 'inline; filename=evidence.pdf');
         $this->actingAs($tenant)->get(route('tenant.support.attachments.download', [$attachment->supportRequest, $attachment]))->assertOk();
 
         Livewire::actingAs($tenant)->test(Create::class)
             ->set('subject', 'Bad')->set('description', 'This unsupported attachment must be rejected safely.')
             ->set('attachment', UploadedFile::fake()->create('bad.exe', 20, 'application/octet-stream'))->call('submit')->assertHasErrors('attachment');
+    }
+
+    public function test_initial_uploaded_attachment_is_visible_to_authorized_operational_and_customer_views(): void
+    {
+        Storage::fake('local');
+        $tenant = $this->user('tenant');
+        $staff = $this->user('support_staff');
+        $admin = $this->user('admin');
+
+        Livewire::actingAs($tenant)->test(Create::class)
+            ->set('subject', 'Initial attachment visibility')
+            ->set('description', 'This initial attachment must remain visible to authorized viewers.')
+            ->set('attachment', UploadedFile::fake()->create('initial-evidence.pdf', 20, 'application/pdf'))
+            ->call('submit')
+            ->assertHasNoErrors();
+
+        $request = SupportRequest::firstOrFail();
+        $attachment = SupportRequestAttachment::firstOrFail();
+        Storage::disk('local')->assertExists($attachment->file_path);
+        $this->assertSame($request->id, $attachment->support_request_id);
+        $this->assertNotNull($attachment->support_request_message_id);
+
+        $this->actingAs($staff)->get(route('support-team.requests.show', $request))->assertOk()->assertSee('initial-evidence.pdf');
+        $this->actingAs($admin)->get(route('admin.support.show', $request))->assertOk()->assertSee('initial-evidence.pdf');
+        $this->actingAs($tenant)->get(route('tenant.support.show', $request))->assertOk()->assertSee('initial-evidence.pdf');
+        Livewire::actingAs($tenant)->test(ActiveDrawer::class)->assertSee('initial-evidence.pdf');
+        $this->actingAs($tenant)->get(route('tenant.support.attachments.download', [$request, $attachment]))->assertOk();
+    }
+
+    public function test_active_drawer_only_contains_the_owners_open_in_progress_or_waiting_requests(): void
+    {
+        $tenant = $this->user('tenant');
+        $otherTenant = $this->user('tenant');
+        $open = SupportRequest::create(['user_id' => $tenant->id, 'role_snapshot' => 'tenant', 'category' => 'general', 'subject' => 'Open request', 'description' => 'Open request description.', 'status' => 'open']);
+        $inProgress = SupportRequest::create(['user_id' => $tenant->id, 'role_snapshot' => 'tenant', 'category' => 'general', 'subject' => 'In progress request', 'description' => 'In progress description.', 'status' => 'in_progress']);
+        SupportRequest::create(['user_id' => $tenant->id, 'role_snapshot' => 'tenant', 'category' => 'general', 'subject' => 'Resolved request', 'description' => 'Resolved description.', 'status' => 'resolved']);
+        SupportRequest::create(['user_id' => $otherTenant->id, 'role_snapshot' => 'tenant', 'category' => 'general', 'subject' => 'Other tenant request', 'description' => 'Other tenant description.', 'status' => 'waiting_for_user']);
+
+        Livewire::actingAs($tenant)->test(ActiveDrawer::class)
+            ->assertSee('Open request')
+            ->assertSee('In progress request')
+            ->assertSee('Send reply')
+            ->assertSee('Sending...')
+            ->assertDontSee('Resolved request')
+            ->assertDontSee('Other tenant request')
+            ->call('selectRequest', $inProgress->id)
+            ->assertSet('selectedRequestId', $inProgress->id)
+            ->set('replyBody', 'Here is the information you requested.')
+            ->call('sendReply')
+            ->assertHasNoErrors()
+            ->assertSet('replyBody', '');
+
+        $this->assertDatabaseHas('support_request_messages', ['support_request_id' => $inProgress->id, 'body' => 'Here is the information you requested.', 'is_internal' => false]);
+        $this->assertSame('in_progress', $inProgress->fresh()->status);
+        $this->assertSame('open', $open->fresh()->status);
+    }
+
+    public function test_landlord_drawer_reply_is_scoped_to_the_selected_request(): void
+    {
+        $landlord = $this->user('landlord');
+        $first = SupportRequest::create(['user_id' => $landlord->id, 'role_snapshot' => 'landlord', 'category' => 'general', 'subject' => 'First landlord request', 'description' => 'First landlord request description.', 'status' => 'open']);
+        $second = SupportRequest::create(['user_id' => $landlord->id, 'role_snapshot' => 'landlord', 'category' => 'general', 'subject' => 'Second landlord request', 'description' => 'Second landlord request description.', 'status' => 'waiting_for_user']);
+
+        Livewire::actingAs($landlord)->test(ActiveDrawer::class)
+            ->call('selectRequest', $second->id)
+            ->set('replyBody', 'This reply belongs to the second request.')
+            ->call('sendReply')
+            ->assertHasNoErrors()
+            ->assertSet('replyBody', '');
+
+        $this->assertDatabaseHas('support_request_messages', ['support_request_id' => $second->id, 'body' => 'This reply belongs to the second request.', 'is_internal' => false]);
+        $this->assertDatabaseMissing('support_request_messages', ['support_request_id' => $first->id, 'body' => 'This reply belongs to the second request.']);
+        $this->assertSame('open', $second->fresh()->status);
     }
 
     public function test_valid_submission_with_a_temporary_upload_persists_once_and_redirects_cleanly(): void
@@ -165,7 +243,24 @@ class SupportRequestTest extends TestCase
         $this->get(route('tenant.support.attachments.download', [$request, $attachment]))->assertRedirect(route('login'));
 
         Storage::disk('local')->delete($attachment->file_path);
+        $this->actingAs($tenant)->get(route('tenant.support.attachments.view', [$request, $attachment]))->assertNotFound();
         $this->actingAs($tenant)->get(route('tenant.support.attachments.download', [$request, $attachment]))->assertNotFound();
+    }
+
+    public function test_landlord_owner_can_view_and_download_a_public_attachment(): void
+    {
+        Storage::fake('local');
+        $landlord = $this->user('landlord');
+        $request = $this->requestWithAttachment($landlord);
+        $attachment = $request->attachments()->firstOrFail();
+
+        $this->actingAs($landlord)->get(route('landlord.support.attachments.view', [$request, $attachment]))
+            ->assertOk()
+            ->assertHeader('cache-control', 'no-store, private')
+            ->assertHeader('content-disposition', 'inline; filename=private.pdf');
+        $this->actingAs($landlord)->get(route('landlord.support.attachments.download', [$request, $attachment]))
+            ->assertOk()
+            ->assertHeader('content-disposition', 'attachment; filename=private.pdf');
     }
 
     public function test_tenant_contexts_are_owner_scoped_on_the_server_and_valid_contexts_are_stored(): void

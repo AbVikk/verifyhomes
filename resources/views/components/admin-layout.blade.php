@@ -67,11 +67,17 @@
             'active' => request()->routeIs('admin.inspection-requests.*'),
             'icon' => 'inspection-requests',
         ],
-        [
+        ...($user?->isAdmin() ? [[
             'label' => 'Support Requests',
             'href' => route('admin.support.index'),
             'active' => request()->routeIs('admin.support.*'),
             'icon' => 'notifications',
+        ]] : []),
+        [
+            'label' => 'Maintenance',
+            'href' => route('admin.maintenance.index'),
+            'active' => request()->routeIs('admin.maintenance.*'),
+            'icon' => 'occupancy',
         ],
         [
             'label' => 'Payments',
@@ -103,14 +109,20 @@
             'active' => request()->routeIs('admin.occupancy.*'),
             'icon' => 'occupancy',
         ],
-        [
+        ...($user?->isAdmin() ? [[
             'label' => 'Audit',
             'href' => route('admin.audit.index'),
             'active' => request()->routeIs('admin.audit.*'),
             'icon' => 'audit',
-        ],
+        ]] : []),
     ];
     if ($user?->isAdmin()) {
+        $navigationLinks[] = [
+            'label' => 'Staff',
+            'href' => route('admin.staff.index'),
+            'active' => request()->routeIs('admin.staff.*'),
+            'icon' => 'tenants',
+        ];
         $navigationLinks[] = [
             'label' => 'Support Team',
             'href' => route('admin.support-team.index'),

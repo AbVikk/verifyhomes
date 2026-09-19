@@ -21,6 +21,7 @@ class RolesAndAdminSeeder extends Seeder
             'tenant',
             'landlord',
             'staff',
+            'support_staff',
             'admin',
         ];
 

@@ -98,6 +98,7 @@
                 </div>
 
                 <div class="space-y-6">
+                    @if ($canAdjustOccupancy)
                     <x-admin.panel>
                         <div class="space-y-4">
                             <div>
@@ -132,6 +133,7 @@
                             </div>
                         </div>
                     </x-admin.panel>
+                    @endif
 
                     <x-admin.panel>
                         <div class="space-y-4">
@@ -209,6 +211,7 @@
                                 <p class="text-sm text-slate-600">This property cannot yet be published because it must be approved and verified first.</p>
                             @endif
 
+                            @if ($canManagePublishing)
                             <div class="flex flex-wrap gap-3">
                                 @if ($property->is_published)
                                     <x-admin.button wire:click="unpublish" wire:loading.attr="disabled" wire:target="unpublish">
@@ -222,6 +225,9 @@
                                     </x-admin.button>
                                 @endif
                             </div>
+                            @else
+                                <p class="text-sm text-slate-600">Only an administrator can change public publishing.</p>
+                            @endif
                         </div>
                     </x-admin.panel>
 

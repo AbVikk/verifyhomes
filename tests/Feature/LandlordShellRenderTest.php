@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\InspectionRequest;
 use App\Models\LandlordProfile;
 use App\Models\Property;
+use App\Models\SupportRequest;
 use App\Models\TenantProfile;
 use App\Models\User;
 use App\Support\PublicPropertyVisibility;
@@ -57,6 +58,16 @@ class LandlordShellRenderTest extends TestCase
         $this->actingAs($landlord)->get(route('landlord.occupancy.index'))
             ->assertOk()
             ->assertSee('data-admin-shell-key="landlord"', false);
+    }
+
+    public function test_landlord_shell_shows_active_support_only_when_the_landlord_has_an_active_request(): void
+    {
+        $landlord = $this->createLandlord();
+        $this->actingAs($landlord)->get(route('landlord.dashboard'))->assertOk()->assertDontSee('Active Support');
+
+        SupportRequest::create(['user_id' => $landlord->id, 'role_snapshot' => 'landlord', 'category' => 'general', 'subject' => 'Payout support', 'description' => 'An active landlord support request.', 'status' => 'waiting_for_user']);
+
+        $this->actingAs($landlord)->get(route('landlord.dashboard'))->assertOk()->assertSee('Active Support')->assertSee('Send reply')->assertSee('>1<', false);
     }
 
     protected function createLandlord(): User

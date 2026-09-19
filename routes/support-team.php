@@ -18,6 +18,7 @@ Route::prefix('support-team')->name('support-team.')->group(function (): void {
         Route::post('/requests/{supportRequest}/notes', [SupportOperationsController::class, 'internalNote'])->name('requests.notes');
         Route::post('/requests/{supportRequest}/escalate', [SupportOperationsController::class, 'escalate'])->name('requests.escalate');
         Route::get('/requests/{supportRequest}/attachments/{attachment}', [SupportOperationsController::class, 'attachment'])->name('requests.attachments.view');
+        Route::get('/requests/{supportRequest}/attachments/{attachment}/download', fn (\App\Models\SupportRequest $supportRequest, \App\Models\SupportRequestAttachment $attachment) => app(SupportOperationsController::class)->attachment($supportRequest, $attachment, true))->name('requests.attachments.download');
     });
     Route::middleware('guest')->group(function (): void {
         Route::get('/login', [SupportTeamAuthController::class, 'login'])->name('login');

@@ -279,6 +279,10 @@
                                 </form>
                             @endif
 
+                            @if ($user && ($user->isTenant() || $user->isLandlord()))
+                                <livewire:support.active-drawer />
+                            @endif
+
                             @if ($notificationsAvailable)
                                 <div class="admin-topbar-profile" data-admin-notifications>
                                     <button type="button" class="admin-topbar-profile-trigger" data-admin-notifications-toggle aria-expanded="false">

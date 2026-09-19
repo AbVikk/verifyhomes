@@ -180,12 +180,40 @@ const resetProcessingButtons = () => {
     });
 };
 
+const initializeActiveSupportDrawers = () => {
+    document.querySelectorAll('[data-active-support-drawer]').forEach((drawer) => {
+        if (drawer.dataset.activeSupportBound === 'true') return;
+
+        drawer.dataset.activeSupportBound = 'true';
+        const modal = drawer.querySelector('[data-active-support-modal]');
+        const open = drawer.querySelector('[data-active-support-open]');
+        const close = () => {
+            modal?.classList.add('hidden');
+            modal?.setAttribute('aria-hidden', 'true');
+            open?.setAttribute('aria-expanded', 'false');
+            document.body.classList.remove('admin-mobile-drawer-open');
+        };
+        const show = () => {
+            modal?.classList.remove('hidden');
+            modal?.setAttribute('aria-hidden', 'false');
+            open?.setAttribute('aria-expanded', 'true');
+            document.body.classList.add('admin-mobile-drawer-open');
+        };
+
+        open?.addEventListener('click', show);
+        drawer.querySelectorAll('[data-active-support-close]').forEach((button) => button.addEventListener('click', close));
+        document.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); });
+        document.addEventListener('livewire:navigating', close);
+    });
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const shell = document.querySelector('[data-admin-shell]');
 
     initializeCameraCaptures();
     initializeLandlordDocumentUploads();
     initializeProcessingForms();
+    initializeActiveSupportDrawers();
     resetProcessingButtons();
 
     if (!shell) {
@@ -355,6 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeCameraCaptures();
         initializeLandlordDocumentUploads();
         initializeProcessingForms();
+        initializeActiveSupportDrawers();
         resetProcessingButtons();
     });
 });

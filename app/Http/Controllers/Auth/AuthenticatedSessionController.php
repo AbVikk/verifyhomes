@@ -36,6 +36,10 @@ class AuthenticatedSessionController extends Controller
         /** @var User $user */
         $user = $request->user();
 
+        if ($user->isStaff()) {
+            $user->update(['last_login_at' => now()]);
+        }
+
         if ($request->session()->pull('support_login_origin', false)) {
             if ($user->isTenant()) {
                 return redirect()->route('tenant.support.index');

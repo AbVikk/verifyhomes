@@ -31,6 +31,7 @@ class Index extends Component
 
     public function beginPayout(int $transactionId): void
     {
+        abort_unless(Auth::user()?->isAdmin(), 403);
         $transaction = $this->transaction($transactionId);
         $this->recordingTransactionId = $transactionId;
         $this->payoutAmount = number_format(app(LandlordSettlementService::class)->outstanding($transaction), 2, '.', '');
@@ -46,7 +47,7 @@ class Index extends Component
         session()->flash('status', 'Landlord payout recorded. This does not initiate or confirm an external bank transfer.');
     }
 
-    public function beginReversal(int $settlementId): void { $this->reversingSettlementId = $settlementId; $this->reversalReason = ''; $this->resetValidation(); }
+    public function beginReversal(int $settlementId): void { abort_unless(Auth::user()?->isAdmin(), 403); $this->reversingSettlementId = $settlementId; $this->reversalReason = ''; $this->resetValidation(); }
     public function reversePayout(): void
     {
         abort_unless(Auth::user()?->isAdmin(), 403);
@@ -88,7 +89,7 @@ class Index extends Component
         $all = PaymentTransaction::query()->where('status', 'paid')->whereIn('transaction_type', LandlordSettlementService::ELIGIBLE_TYPES)->get(['id', 'gross_amount', 'platform_fee_amount', 'net_amount']);
         $paid = (float) LandlordSettlement::query()->where('status', 'paid')->sum('payout_amount');
         $attention = $transactions->getCollection()->pluck('settlement_attention')->filter();
-        return $this->adminPage(view('livewire.admin.settlements.index', ['transactions' => $transactions, 'summary' => ['outstanding' => max(0, (float) $all->sum('net_amount') - $paid), 'paid' => $paid, 'platform' => (float) $all->sum('platform_fee_amount'), 'awaiting' => $transactions->getCollection()->where('settlement_state', 'pending')->count(), 'overdue' => $attention->where('overdue', true)->count(), 'oldest' => (int) ($attention->max('days') ?? 0)]]), 'Settlements');
+        return $this->adminPage(view('livewire.admin.settlements.index', ['transactions' => $transactions, 'canManageSettlements' => Auth::user()?->isAdmin() ?? false, 'summary' => ['outstanding' => max(0, (float) $all->sum('net_amount') - $paid), 'paid' => $paid, 'platform' => (float) $all->sum('platform_fee_amount'), 'awaiting' => $transactions->getCollection()->where('settlement_state', 'pending')->count(), 'overdue' => $attention->where('overdue', true)->count(), 'oldest' => (int) ($attention->max('days') ?? 0)]]), 'Settlements');
     }
 
     public function formatMoney(float|int|string|null $amount, string $currency = 'NGN'): string { return Currency::format($amount, $currency); }

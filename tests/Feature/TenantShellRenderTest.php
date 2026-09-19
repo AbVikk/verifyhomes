@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\InspectionRequest;
 use App\Models\PaymentTransaction;
 use App\Models\Property;
+use App\Models\SupportRequest;
 use App\Models\TenantProfile;
 use App\Models\User;
 use App\Support\PaymentTransactionRecorder;
@@ -121,6 +122,16 @@ class TenantShellRenderTest extends TestCase
         $response->assertOk();
         $response->assertSee('href="'.route('tenant.profile').'"', false);
         $response->assertDontSee('href="'.route('profile.edit').'"', false);
+    }
+
+    public function test_tenant_shell_shows_active_support_only_when_the_tenant_has_an_active_request(): void
+    {
+        $tenant = $this->createTenant();
+        $this->actingAs($tenant)->get(route('tenant.dashboard'))->assertOk()->assertDontSee('Active Support');
+
+        SupportRequest::create(['user_id' => $tenant->id, 'role_snapshot' => 'tenant', 'category' => 'general', 'subject' => 'Dashboard support', 'description' => 'An active support request.', 'status' => 'open']);
+
+        $this->actingAs($tenant)->get(route('tenant.dashboard'))->assertOk()->assertSee('Active Support')->assertSee('Send reply')->assertSee('>1<', false);
     }
 
     protected function createTenant(): User

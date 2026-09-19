@@ -49,6 +49,14 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        if (Auth::user()?->isStaff() && Auth::user()?->suspended_at) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'This staff account is unavailable.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

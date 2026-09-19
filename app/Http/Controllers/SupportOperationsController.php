@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SupportOperationsController extends Controller
 {
@@ -313,11 +314,15 @@ class SupportOperationsController extends Controller
         return back()->with('status', 'Escalation cleared.');
     }
 
-    public function attachment(SupportRequest $supportRequest, SupportRequestAttachment $attachment)
+    public function attachment(SupportRequest $supportRequest, SupportRequestAttachment $attachment, bool $download = false): StreamedResponse
     {
         abort_unless($attachment->support_request_id === $supportRequest->id, 404);
         abort_unless(Storage::disk('local')->exists($attachment->file_path), 404);
         $name = Str::limit(preg_replace('/[^A-Za-z0-9._ -]/', '_', basename($attachment->original_name)) ?: 'support-attachment', 180, '');
+
+        if ($download) {
+            return Storage::disk('local')->download($attachment->file_path, $name);
+        }
 
         return Storage::disk('local')->response($attachment->file_path, $name, ['Cache-Control' => 'private, no-store']);
     }
@@ -383,7 +388,7 @@ class SupportOperationsController extends Controller
             'maintenanceRequest:id,title,status',
             'occupancyComplaint:id,category,status,description',
             'messages.user:id,name',
-            'attachments',
+            'attachments.message:id,is_internal',
             'events.actor:id,name',
         ]);
         $user = $request->user();

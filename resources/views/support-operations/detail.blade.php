@@ -130,6 +130,21 @@
     @endif
 
     @if($supportRequest->attachments->isNotEmpty())
+        <div class="rounded-xl border border-slate-200 bg-white p-5">
+            <h3 class="font-semibold">Attachments</h3>
+            <p class="mt-1 text-xs text-slate-500">Files stay private and are available only through these authorized controls.</p>
+            <div class="mt-3 space-y-3">
+                @foreach($supportRequest->attachments as $attachment)
+                    <div class="flex flex-col gap-2 rounded-lg border border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="min-w-0"><p class="break-all text-sm font-medium text-slate-800">{{ $attachment->original_name }}</p><p class="mt-1 text-xs text-slate-500">{{ $attachment->mime_type }} | {{ number_format($attachment->file_size / 1024, 1) }} KB | {{ $attachment->message?->is_internal ? 'Internal note' : 'Customer-visible' }}</p></div>
+                        <div class="flex shrink-0 gap-3 text-sm"><a class="admin-inline-link" href="{{ route($prefix.'.attachments.view', [$supportRequest, $attachment]) }}" target="_blank" rel="noopener">View</a><a class="admin-inline-link" href="{{ route($prefix.'.attachments.download', [$supportRequest, $attachment]) }}">Download</a></div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    @if(false)
         <div class="rounded-xl border border-slate-200 bg-white p-5"><h3 class="font-semibold">Attachments</h3><div class="mt-3 space-y-2">@foreach($supportRequest->attachments as $attachment)<a class="block break-all text-sm font-medium text-teal-800 hover:underline" href="{{ route($prefix.'.attachments.view', [$supportRequest, $attachment]) }}" target="_blank" rel="noopener">{{ $attachment->original_name }} · {{ number_format($attachment->file_size / 1024, 1) }} KB</a>@endforeach</div></div>
     @endif
 

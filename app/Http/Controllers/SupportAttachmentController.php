@@ -4,14 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\SupportRequest;
 use App\Models\SupportRequestAttachment;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SupportAttachmentController extends Controller
 {
-    public function view(SupportRequest $supportRequest, SupportRequestAttachment $attachment): Response
+    public function view(SupportRequest $supportRequest, SupportRequestAttachment $attachment): StreamedResponse
     {
         $this->authorizeAttachment($supportRequest, $attachment);
 

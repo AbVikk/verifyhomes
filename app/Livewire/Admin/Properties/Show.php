@@ -34,6 +34,7 @@ class Show extends Component
 
     public function publish(): void
     {
+        abort_unless($this->currentUser()->isAdmin(), 403);
         $property = $this->property->fresh();
 
         if (! PublicPropertyVisibility::canBePublished($property)) {
@@ -70,6 +71,7 @@ class Show extends Component
 
     public function unpublish(): void
     {
+        abort_unless($this->currentUser()->isAdmin(), 403);
         $property = $this->property->fresh();
 
         if (! $property->is_published) {
@@ -172,6 +174,7 @@ class Show extends Component
 
     public function updateOccupancy(): void
     {
+        abort_unless($this->currentUser()->isAdmin(), 403);
         $property = $this->property->fresh();
 
         $validated = validator(
@@ -225,6 +228,8 @@ class Show extends Component
         return $this->adminPage(view('livewire.admin.properties.show', [
             'property' => $property,
             'canBePublished' => PublicPropertyVisibility::canBePublished($property),
+            'canManagePublishing' => $this->currentUser()->isAdmin(),
+            'canAdjustOccupancy' => $this->currentUser()->isAdmin(),
             'historyAvailable' => $historyAvailable,
         ]), 'Property Review', 'Back to Properties', route('admin.properties.index'));
     }

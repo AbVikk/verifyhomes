@@ -35,8 +35,14 @@ class SupportTeamWorkspaceTest extends TestCase
         $attachment = $request->attachments()->create(['uploaded_by' => $request->user_id, 'original_name' => 'evidence.pdf', 'file_path' => $path, 'mime_type' => 'application/pdf', 'file_size' => 7]);
         $this->actingAs($staff)->get(route('support-team.dashboard'))->assertOk()->assertSee('Open requests');
         $this->actingAs($staff)->get(route('support-team.requests.index'))->assertOk()->assertSee($request->reference);
-        $this->actingAs($staff)->get(route('support-team.requests.show', $request))->assertOk()->assertSee($request->subject);
-        $this->actingAs($staff)->get(route('support-team.requests.attachments.view', [$request, $attachment]))->assertOk();
+        $this->actingAs($staff)->get(route('support-team.requests.show', $request))->assertOk()->assertSee($request->subject)->assertSee('evidence.pdf')->assertSee('Download');
+        $this->actingAs($staff)->get(route('support-team.requests.attachments.view', [$request, $attachment]))->assertOk()->assertHeader('cache-control', 'no-store, private');
+        $this->actingAs($staff)->get(route('support-team.requests.attachments.download', [$request, $attachment]))->assertOk();
+
+        $admin = $this->user('admin');
+        $this->actingAs($admin)->get(route('admin.support.show', $request))->assertOk()->assertSee('evidence.pdf')->assertSee('Download');
+        $this->actingAs($admin)->get(route('admin.support.attachments.view', [$request, $attachment]))->assertOk()->assertHeader('cache-control', 'no-store, private');
+        $this->actingAs($admin)->get(route('admin.support.attachments.download', [$request, $attachment]))->assertOk();
     }
 
     public function test_customers_and_suspended_staff_cannot_access_support_team_operations(): void
